@@ -1,0 +1,9 @@
+define numeroEventi as method of Paziente
+  set prova = 34
+enddefine
+
+define cognomeNome as method of Paziente
+  set cognome = Paziente.cognome
+  set nomeCognome= str_cat(cognome, ' ',Paziente.nome)
+  return(nomeCognome)
+enddefine"

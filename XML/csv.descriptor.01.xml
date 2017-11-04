@@ -1,0 +1,17 @@
+<xml>
+  <rows>
+    <id type='enum'>182,183,184,185,186,187,188,189,190</id>
+  </rows>
+  
+  <section class='Paziente' nuovo='ss'>
+    <column>id</column>
+    <column>nome</column>
+    <column>cognome</column>
+    
+    <section class='Evento' method='hasClinicalEvents'>
+      <column>dataEvento</column>
+      <column>descrizione</column>
+    </section>
+    
+  </section>
+</xml>

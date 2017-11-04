@@ -1,0 +1,33 @@
+define SQLDB mainDB
+  database = tree_v2_r1
+  host = localhost
+  username = root
+  password =
+enddefine
+
+define CLASS Paziente
+  link.name =  mainDB
+  table.name = _A02_ANAGRAFICA
+  primary.key = _A02_COD_ANAGRAFICA
+  attribute id = _A02_COD_ANAGRAFICA
+  attribute nome = _A02_NOME
+  attribute cognome = _A02_COGNOME
+  attribute dataNascita = _A02_DATA_NASCITA
+enddefine
+
+define CLASS Evento
+  link.name =  mainDB
+  table.name = _A03_CRONOLOGICA
+  primary.key = _A03_COD_CRONOLOGICA
+  attribute id = _A03_COD_CRONOLOGICA
+  attribute descrizione = SQL{ SELECT _T05_DESCRIZIONE FROM _T05_TIPO_CRONOLOGICA, _A03_CRONOLOGICA WHERE _A03_CRONOLOGICA._T05_C_TIPO_CRONOLOGICA = _T05_TIPO_CRONOLOGICA._T05_COD_TIPO_CRONOLOGICA AND _A03_CRONOLOGICA._A03_COD_CRONOLOGICA='$primary.key$' }
+  attribute evento = _T05_C_TIPO_CRONOLOGICA
+  attribute patID = _A02_C_ANAGRAFICA
+  attribute dataEvento = _A03_DATA_EVENTO_CRONOLOGICA
+enddefine
+
+define RELATION hasClinicalEvents
+  master = Paziente.id
+  slave = Evento.patID
+  asc order by = dataEvento
+enddefine
