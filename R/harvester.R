@@ -48,7 +48,8 @@ harvester<-function( ) {
       stringa.attributo <- str_c(classe,".",contenuto.colonna)
       
       tmp.HLL <- HLL()
-      tmp.HLL$setEnv(env = global.obj.LLL, mem = list("implicit.PK"=id) )
+      imported.class.methods <- global.obj.HLL$getClassMethods()
+      tmp.HLL$setEnv(env = global.obj.LLL, mem = list("implicit.PK"=id),classMethods = imported.class.methods )
       res <- tmp.HLL$execute(script = stringa.attributo)
       arr.id <- res$valore
       
@@ -63,7 +64,9 @@ harvester<-function( ) {
     metodo.figlio <- as.character(lista$section$.attrs["method"])
     stringa.cattura.nuovi.id <- str_c(classe,".",metodo.figlio)
     tmp.HLL <- HLL()
-    tmp.HLL$setEnv(env = global.obj.LLL, mem = list("implicit.PK"=id) )
+
+    imported.class.methods <- global.obj.HLL$getClassMethods()
+    tmp.HLL$setEnv(env = global.obj.LLL, mem = list("implicit.PK"=id), classMethods = imported.class.methods )
     res <- tmp.HLL$execute(script = stringa.cattura.nuovi.id)
     arr.id <- res$valore
     

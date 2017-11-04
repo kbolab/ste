@@ -196,6 +196,7 @@ LLL <- function() {
     else return(FALSE)
   }
   is.relation.of<-function( className , relName ) {
+    # if(relName=="dimensioneTiroide") browser()
     if( relName %in% names(mem.struct$CLASS[[className]]$relation) ) return(TRUE)
     else return(FALSE)
   }

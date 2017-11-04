@@ -124,6 +124,9 @@ HLL <- function() {
     if(! ( class.name %in% mem.struct$class.methods ) ) mem.struct$class.methods[[class.name]]<<-list()
     if(!(method.name %in% mem.struct$class.methods[[class.name]])) mem.struct$class.methods[[class.name]][[method.name]]<<-c()
   }
+  getClassMethods<-function(  ) {
+    return(mem.struct$class.methods)
+  }
   # ---------------------------------------------------------------
   # proxy.mem.contesto.addLine
   # proxy per l'aggiunta di una linea al contesto
@@ -320,10 +323,8 @@ HLL <- function() {
     if(!is.na(res["str_cat"])) {
       tmp.stringa <- str_trim(stringa)
       tmp.stringa <- str_sub(tmp.stringa,start = 9,end = str_length(tmp.stringa)-1)
-      # if(str_count(string = tmp.stringa,pattern = ",")!=1) stop("\n errore, questa versione pattona del parser ammette solo una ',' per riga di str_cat")
 
       arr.membri <- unlist(str_split(string = tmp.stringa,pattern = ","))
-      # membro.1 <- arr.membri[1];    membro.2 <- arr.membri[2]
 
       valore.finale <- c()
       for( membro.1 in arr.membri) {
@@ -342,21 +343,6 @@ HLL <- function() {
         }
         valore.finale <- str_c(valore.finale,valore.membro.1)
       }
-      # # E' una stringa?'
-      # if(is.a.quoted.string(membro.2)) valore.membro.2 <- togli.apici.esterni.stringa(membro.2)
-      # else {  # E' una variabile?
-      #   if(membro.2 %in% names(mem.struct$var))  {
-      #     if(mem.struct$var[[membro.2]]$type != "string") stop("errore: non posso fare lo str_cat fra non stringhe")
-      #     valore.membro.2 <- mem.struct$var[[membro.2]]$value
-      #   }
-      #   else {  # ultimo tentativo: Risolvilo!
-      #     tmp.res.HLL <- invoca.ricorsivamente.HLL( membro.2 )
-      #     valore.membro.2 <- tmp.res.HLL$valore
-      #   }
-      # }
-      # # Componi le due stringhe
-      # valore.finale <- str_c(valore.membro.1,valore.membro.2)
-      # browser()
       return(list( "valore"=valore.finale, "operation.token" = "str_cat", "operation"=stringa))
       # Se gnon ia' era aperta una definizione, dai errore
       stop("\n errore, qui ci dovrei arrivare solo senza un contesto aperto...")
@@ -373,9 +359,10 @@ HLL <- function() {
   # setEnv
   # Setta il contesto, ovvero carica lo schema LLL da usare
   # ----------------------------------------------------------------
-  setEnv<-function( env = list(), mem = list() ) {
+  setEnv<-function( env = list(), mem = list(), classMethods=list() ) {
     if(length(env)>0) LLL.env <<- env
     if(length(mem)>0) mem.struct <<- mem
+    if(length(classMethods)>0) mem.struct$class.methods <<- classMethods
   }
   # ----------------------------------------------------------------
   # Costruttore
@@ -396,7 +383,8 @@ HLL <- function() {
       "parseScript"=parseScript,
       "setEnv"=setEnv,
       "get"=get,
-      "execute"=execute
+      "execute"=execute,
+      "getClassMethods"=getClassMethods
     )
   )
 

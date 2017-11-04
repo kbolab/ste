@@ -26,6 +26,7 @@ define CLASS Evento
   attribute dataEvento = _A03_DATA_EVENTO_CRONOLOGICA
 enddefine
 
+
 define RELATION hasClinicalEvents
   master = Paziente.id
   slave = Evento.patID

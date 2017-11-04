@@ -6,4 +6,13 @@ define cognomeNome as method of Paziente
   set cognome = Paziente.cognome
   set nomeCognome= str_cat(cognome, ' ',Paziente.nome)
   return(nomeCognome)
-enddefine"
+enddefine
+
+define dimensioneTiroide as method of Evento
+  set tipo = Evento.descrizione
+  if( tipo!='Ecografia') then
+    return(null)
+  else
+    return(12)
+  endif
+enddefine
