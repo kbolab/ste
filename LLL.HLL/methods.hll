@@ -10,9 +10,10 @@ enddefine
 
 define dimensioneTiroide as method of Evento
   set tipo = Evento.descrizione
-  if( tipo!='Ecografia') then
-    return(null)
+  if(tipo=='Ecografia') then
+    set result=12
   else
-    return(12)
+    set result=0
   endif
+  return( result  )
 enddefine

@@ -1,3 +1,7 @@
+#' A data harvsdsadsester
+#'
+#' @description  uppasds
+#' @export
 is.a.number<-function( stringa ) {
   if(length(stringa)>1) return(FALSE)
   return(!(is.na(suppressWarnings(as.numeric(stringa)))))

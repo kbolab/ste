@@ -11,6 +11,7 @@
     <section class='Evento' method='hasClinicalEvents'>
       <column>dataEvento</column>
       <column>descrizione</column>
+      <column>dimensioneTiroide</column>
     </section>
     
   </section>
