@@ -10,10 +10,25 @@ enddefine
 
 define dimensioneTiroide as method of Evento
   set tipo = Evento.descrizione
+  set result = ''
   if(tipo=='Ecografia') then
-    set result=12
-  else
-    set result=0
+    set idEcoTiroide  = Evento.id_ecoTiroide
+    if( idEcoTiroide != 'null' ) then
+      set fi_long_dx = EcoTiroide(idEcoTiroide).dxFiLongitudinale
+      set fi_long_sx = EcoTiroide(idEcoTiroide).sxFiLongitudinale
+      set fi_antpos_dx = EcoTiroide(idEcoTiroide).dxFiAnteroposteriore
+      set fi_antpos_sx = EcoTiroide(idEcoTiroide).sxFiAnteroposteriore
+      set fi_trasv_dx = EcoTiroide(idEcoTiroide).dxFiTrasverso
+      set fi_trasv_sx = EcoTiroide(idEcoTiroide).sxFiTrasverso      
+      
+
+      if( fi_long_dx!='' & fi_long_sx!='' & fi_antpos_dx!='' & fi_antpos_sx!='' & fi_trasv_dx!='' & fi_trasv_sx!='')  then
+        set dim_dx = ( fi_long_dx * fi_antpos_dx * fi_trasv_dx *437/1000  )
+        set dim_sx = ( fi_long_sx * fi_antpos_sx * fi_trasv_sx *437/1000  )
+        set result = (dim_dx + dim_sx)/1000
+        return( result)
+      endif
+    endif
   endif
   return( result  )
 enddefine

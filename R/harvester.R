@@ -37,7 +37,7 @@ harvester<-function( ) {
   calcola.sottoblocco <- function( lista , livello = 1 , id ){
 
     classe <- lista$.attrs["class"] 
-
+# if(id==69 & livello==2) browser()
     # calcolo le mie colonne
     quante.colonne <- sum(names(lista)=="column")
     arr.def.colonna <- c()
@@ -52,7 +52,7 @@ harvester<-function( ) {
       tmp.HLL$setEnv(env = global.obj.LLL, mem = list("implicit.PK"=id),classMethods = imported.class.methods )
       res <- tmp.HLL$execute(script = stringa.attributo)
       arr.id <- res$valore
-      
+
       arr.def.colonna<-c(arr.def.colonna,arr.id)
     }
 
@@ -75,6 +75,7 @@ harvester<-function( ) {
     tot.sottomatrice <- c()
     for( i in 1:length(arr.id)) { 
       sottomatrice <- calcola.sottoblocco(lista = lista$section, livello = livello + 1, id = arr.id[i] )
+      # browser()
       tot.sottomatrice <- rbind(tot.sottomatrice,sottomatrice)
     }
     master.matrice <- matrix(rep(arr.def.colonna,nrow(tot.sottomatrice)) , nrow = nrow(tot.sottomatrice) ,byrow = T)
@@ -99,6 +100,7 @@ harvester<-function( ) {
       tmp.res <- calcola.sottoblocco( lista = subElementList , id = arr.id[id] )
       mega.matrice <- rbind( mega.matrice,tmp.res )
     }
+    # browser()
     return(mega.matrice)
   }
   load.LLL <- function(filename = NA, script = NA, folder = NA){
@@ -114,6 +116,8 @@ harvester<-function( ) {
     }
     text <- paste(readLines(con = filename,warn = F),collapse = "\n")
     global.obj.HLL$parseScript(script = text )
+    # browser()
+    pp <- 3
   }  
   # ----------------------------------------------------------------
   # Costruttore

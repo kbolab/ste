@@ -24,6 +24,7 @@ define CLASS Evento
   attribute evento = _T05_C_TIPO_CRONOLOGICA
   attribute patID = _A02_C_ANAGRAFICA
   attribute dataEvento = _A03_DATA_EVENTO_CRONOLOGICA
+  attribute id_ecoTiroide = SQL{ SELECT _A10_COD_ECOGRAFIA FROM _A10_ECOGRAFIA WHERE _A10_ECOGRAFIA._A03_C_CRONOLOGICA='$primary.key$' }
 enddefine
 
 

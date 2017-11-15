@@ -7,8 +7,10 @@ HLL <- function() {
 
   LLL.env <- NA
   mem.struct <- list()
+  global.null.value <- ""
 
   parseScript<-function( script ) {
+    cat("\n =====================================")
     # splitta le righe ed elimina le righe vuote
     arr.righe <- str_trim(unlist(str_split(string = script,pattern = "\n")))
 
@@ -33,8 +35,6 @@ HLL <- function() {
       if(str_sub(str_trim(str.riga),start = 1,end = 1)==":") { indice.riga<-indice.riga+1; next; }
       if(str_sub(str_trim(str.riga),start = 1,end = 1)=="#") { indice.riga<-indice.riga+1; next; }
 
-      # cat("\nS:",str.riga)
-      
       # Parse della stringa:
       # SE NON E' APERTO UN CONTESTO :
       if( length(mem.struct$define.context)==0) {
@@ -53,9 +53,11 @@ HLL <- function() {
         }
       }
       
-      if(res$operation.token=="IF") { jump.statement <-TRUE }
-      if(res$operation.token=="ENDIF") { jump.statement <-TRUE }
+      if(res$operation.token=="IF") { jump.statement <-TRUE ; }
+      if(res$operation.token=="ENDIF") { jump.statement <-TRUE ; }
+      if(res$operation.token=="ELSE") { jump.statement <-TRUE ;  }
       
+      # if( jump.statement == TRUE )  browser()
       # Se l'istruzione eseguita era una istruzione che prevedeva un salto, comportati di conseguenza
       # (non aggiornare il cursore in avanti di uno, ma fai il jump previsto)
       if( jump.statement == TRUE ) 
@@ -138,24 +140,24 @@ HLL <- function() {
     mem.struct$define.context$method.name <<- method.name
     mem.struct$define.context$class.name <<- class.name
     mem.struct$define.context$script <<- c()
-    mem.struct$class.method
+    # mem.struct$class.method
     # browser()
-    if(!("class.methods" %in% mem.struct)) mem.struct$class.methods<<-list()
-    if(! ( class.name %in% mem.struct$class.methods ) ) mem.struct$class.methods[[class.name]]<<-list()
-    if(!(method.name %in% mem.struct$class.methods[[class.name]])) mem.struct$class.methods[[class.name]][[method.name]]<<-c()
-  }
-  getClassMethods<-function(  ) {
-    return(mem.struct$class.methods)
+    if(!("class.methods" %in% names(mem.struct))) mem.struct$class.methods<<-list()
+    if(! ( class.name %in% names(mem.struct$class.methods) ) ) mem.struct$class.methods[[class.name]]<<-list()
+    if(!(method.name %in% names(mem.struct$class.methods[[class.name]]))) mem.struct$class.methods[[class.name]][[method.name]]<<-c()
   }
   # ---------------------------------------------------------------
   # proxy.mem.contesto.addLine
   # proxy per l'aggiunta di una linea al contesto
   # ---------------------------------------------------------------
   proxy.mem.contesto.addLine<-function(  stringa ) {
+    # browser()
     if( length(mem.struct$define.context)==0 ) stop("\n errore, non e' stato definito alcun contesto in cui copiare le righe")
     mem.struct$define.context$script <<- c( mem.struct$define.context$script , stringa)
     class.name <- mem.struct$define.context$class.name
+    # if(class.name=="Evento") browser()
     method.name <- mem.struct$define.context$method.name
+    # cat("\n ***: ",method.name)
     mem.struct$class.methods[[class.name]][[method.name]] <<- c(mem.struct$class.methods[[class.name]][[method.name]],stringa)
   }
   # ---------------------------------------------------------------
@@ -164,14 +166,15 @@ HLL <- function() {
   # risolveraa' ricorsivamente le chiamate)
   # ---------------------------------------------------------------
   execute <-  function( script , complete.script = NA , script.cursor = NA) {
-    cat("\n\t (",script.cursor,")",script)
-# if(script=="'prova'") browser()
+    # cat("\n\t (",script.cursor,")",script)
+# if( is.na((script.cursor))) browser()
+    if(!is.na(script.cursor)) cat("\nS :",script.cursor,":",script)
     stringa <- script
     match.trovato <- FALSE
     res<-list()
     res["set"]<- str_extract(string = stringa, pattern = "^[ ]*set[ ]+[A-Za-z0-9._]+[ ]*=")
     res["obj"]<- str_extract(string = stringa, pattern = "^[ ]*^[a-zA-Z _]+\\(.*\\)[ ]*\\..*$")
-    res["obj.implicit.PK"]<- str_extract(string = stringa, pattern = "^[ ]*[a-zA-Z]+[a-zA-Z0-9]*\\.[a-zA-Z]+[a-zA-Z0-9]*[ ]*$")
+    res["obj.implicit.PK"]<- str_extract(string = stringa, pattern = "^[ ]*[a-zA-Z]+[a-zA-Z0-9_]*\\.[a-zA-Z]+[a-zA-Z0-9_]*[ ]*$")
     res["return"]<- str_extract(string = stringa, pattern = "^[ ]*return\\(.*\\)[ ]*$")
     res["define"]<- str_extract(string = stringa, pattern = "^[ ]*define[ ]+[a-zA-Z0-9_]+[ ]+as[ ]+method[ ]+of[ ]+[a-zA-Z0-9_]+[ ]*$")
     res["enddefine"]<- str_extract(string = stringa, pattern = "^[ ]*enddefine[ ]*$")
@@ -182,11 +185,13 @@ HLL <- function() {
 
     #  SET
     if(!is.na(res["set"])) {
-      toReturn <- risolvi.set( stringa )
+      # if(stringa=="set fi_long_dx = EcoTiroide(idEcoTiroide).dxFiLongitudinale") browser()
+      toReturn <- risolvi.set( stringa , script.cursor = script.cursor )
       return(toReturn)
     }
     # Se e' un' accesso ad un oggetto
     if(!is.na(res["obj"]) | !is.na(res["obj.implicit.PK"])) {
+      # if(is.na(script.cursor)) browser()
       toReturn <- risolvi.accessoAMetodo( stringa, res )
       return(toReturn)      
     }
@@ -229,6 +234,7 @@ HLL <- function() {
     # SYNTAX ERROR!
     # =========================================
     if(match.trovato== FALSE) {
+      browser()
       cat( "\n syntax error in resolving: ", stringa )
       stop()
     }
@@ -271,7 +277,7 @@ HLL <- function() {
     
     return( 
       list( "valore" = NA,
-            "operation.token" = "ENDIF",
+            "operation.token" = "ELSE",
             "operation" = stringa,
             "setScriptCursorTo" = as.numeric(new.script.cursor)
       )
@@ -314,6 +320,10 @@ HLL <- function() {
             pezzo <- paste(c("'",valore.trovato[[variabile]],"'"),collapse = '')
           else
             pezzo <- valore.trovato[[variabile]]
+          
+          if(tipo.variabile[[variabile]]=="null") { 
+            pezzo <-  paste(c("'",global.null.value,"'"),collapse = '')
+          }            
         }
         condizione.finale.da.parsare <- paste(c(condizione.finale.da.parsare,pezzo),collapse = '')
       }
@@ -322,17 +332,15 @@ HLL <- function() {
     }
     # maremma maiala, sono esausto. Comunque ci sono: infine possiamo interpretare la condizione
     esito.condizione <- eval(parse(text=condizione.finale.da.parsare))
-    
+    # browser()
     # Ora cerca di capire dove il cursore di eseuczione dello script dovrebbe venire mosso!
-    riga.else <- mem.struct$script.structures$if.else.endif$`2`$riga.else
-    riga.endif <- mem.struct$script.structures$if.else.endif$`2`$riga.endif
+    riga.else <- mem.struct$script.structures$if.else.endif[[as.character(script.cursor)]]$riga.else
+    riga.endif <- mem.struct$script.structures$if.else.endif[[as.character(script.cursor)]]$riga.endif
     
     if(esito.condizione==TRUE) nuova.posizione.cursore <- script.cursor + 1
     if(esito.condizione==FALSE) { 
-      if(!is.na(riga.else))
-          nuova.posizione.cursore <- as.numeric(riga.else)
-        else 
-          nuova.posizione.cursore <- as.numeric(riga.endif)
+      if(!is.na(riga.else)) { nuova.posizione.cursore <- as.numeric(riga.else)+1 }
+        else  { nuova.posizione.cursore <- as.numeric(riga.endif) }
     }
 
     return( 
@@ -392,6 +400,7 @@ HLL <- function() {
     
     argomento <- sub("^[ ]*return\\([ ]*","\\1",stringa)
     argomento <- str_sub(argomento,start = 1,end = str_length(argomento)-1)
+    argomento <- str_trim(argomento)
     # browser()
     # e' un intero?
     if(is.a.number(argomento)) {
@@ -414,15 +423,15 @@ HLL <- function() {
   # <oggetto>(<id>).<attributo> OPPURE un <oggetto>.<attributo> con un PK implicito
   # ----------------------------------------------------  
   risolvi.accessoAMetodo<-function( stringa , res) {
-    
+    # if(stringa=="Evento.id_ecoTiroide") browser()
     # toReturn <- risolvi.accessoAMetodo( stringa )
     # Due controlli formali di apertura, giusto per gradire (se caso implicito ma manca la PK)
     if(!is.na(res["obj.implicit.PK"])) {
       if( !("implicit.PK" %in% names(mem.struct)) ) stop("\n non e' stato dichiarata la PK implicita (1)")
       if( is.na(mem.struct$implicit.PK)) stop("\n non e' stato dichiarata la PK implicita (2)")
       
-      nome.oggetto <- str_trim(sub("\\.[a-zA-Z]+[a-zA-Z0-9]*[ ]*$" ,"\\1", stringa ))
-      attributo <- str_trim(sub("^[ ]*[a-zA-Z]+[a-zA-Z0-9]*\\." ,"\\1", stringa ))
+      nome.oggetto <- str_trim(sub("\\.[a-zA-Z]+[a-zA-Z0-9_]*[ ]*$" ,"\\1", stringa ))
+      attributo <- str_trim(sub("^[ ]*[a-zA-Z]+[a-zA-Z0-9_]*\\." ,"\\1", stringa ))
       obj.pk <- mem.struct$implicit.PK
     }
     else {  # CASO ESPLICITO
@@ -484,10 +493,12 @@ HLL <- function() {
   # ----------------------------------------------------
   # SET
   # ----------------------------------------------------
-  risolvi.set<-function( stringa ) {
+  risolvi.set<-function( stringa , script.cursor = NA ) {
     
     nome.variabile <- str_extract(string = sub("^[ ]*set[ ]*", "\\1", stringa),pattern = "[A-Za-z0-9._]*")
     secondo.membro <- sub("^[ ]*set[ ]+[A-Za-z0-9._]+[ ]*=[ ]*","\\1",stringa)
+    
+    # browser()
     
     # Se il secondo membro e' un numero non stare a farti tante seghe...
     if( is.a.number(secondo.membro) == TRUE ) {
@@ -507,16 +518,147 @@ HLL <- function() {
       ) )      
     }
 
-    res <- invoca.ricorsivamente.HLL(HLL.script =  secondo.membro)
+    # prendi dalla matrice pre processata per i SET, quelli che sono gli elementi dell'argomento gia' splittati,
+    # cosi' da sapere velocemente cosa devo andare a risolvere
+    # argomento.preprocessato.dalla.matrice <- mem.struct$script.structures$set.statement$matrice.set[ which(mem.struct$script.structures$set.statement$matrice.set[,"riga"]==script.cursor), "da.elaborare"]
+    # if(length(argomento.preprocessato.dalla.matrice) > 0 ) {
+    #   arr.cose.da.risolvere <- unlist(str_split(string = argomento.preprocessato.dalla.matrice,pattern = "#"))
+    #   arr.cose.da.risolvere <- arr.cose.da.risolvere[ which(arr.cose.da.risolvere!="")]
+    #   # verifica se e' qualcosa di composto, che si puo' calcolare diviendo le parti
+    # 
+    #   lst.risultati <- list()
+    #   arr.risultati <- c()
+    #   for(ct in 1:length(arr.cose.da.risolvere))    {
+    #     
+    #     if(!(str_trim(arr.cose.da.risolvere[ct]) %in% c("'","\""," ","+","-","*","/","(",")","|","&","=","!",">","<") )) { 
+    #     # cat("\n =======>",arr.cose.da.risolvere[ct])
+    #       lst.risultati[[ as.character(ct)  ]] <- invoca.ricorsivamente.HLL(HLL.script =  arr.cose.da.risolvere[ct])
+    #       arr.risultati[ct] <- lst.risultati[[ as.character(ct)  ]]$valore
+    # 
+    #       tipo.variabile.restituita <- "unknown"
+    #       if(is.null(arr.risultati[ct])==TRUE) { tipo.variabile.restituita <- "null" }
+    #       else {
+    #         if(is.a.number(arr.risultati[ct])==TRUE) { tipo.variabile.restituita <- "numeric" }
+    #         if(is.a.string(arr.risultati[ct])==TRUE) { tipo.variabile.restituita <- "string" }
+    #         if(is.a.quoted.string(arr.risultati[ct])==TRUE) { tipo.variabile.restituita <- "quoted.string" }
+    #         if(is.a.numeric.array(arr.risultati[ct])==TRUE) { tipo.variabile.restituita <- "numeric.array" }
+    #         if(is.a.string.array(arr.risultati[ct])==TRUE) { tipo.variabile.restituita <- "string.array" }
+    #       }
+    # 
+    #       if(tipo.variabile.restituita == "numeric") arr.risultati[ct] <- as.numeric(arr.risultati[ct])
+    #       if(tipo.variabile.restituita == "string") arr.risultati[ct] <- paste(c("'",arr.risultati[ct],"'"),collapse = '')
+    #       if(tipo.variabile.restituita == "quoted.string") arr.risultati[ct] <- arr.risultati[ct]
+    #       if(tipo.variabile.restituita == "unknown") stop("\n caso strano di tipo variabile non identificata")
+    # 
+    #       # i casi di 'null'  e/o di array vanno bene SOLO se e' una assegnazione diretta!!!!!
+    #       if(tipo.variabile.restituita == "null") arr.risultati[ct] <- global.null.value
+    #       if(tipo.variabile.restituita == "numeric.array") arr.risultati[ct] <- as.numeric(arr.risultati[ct])
+    #       if(tipo.variabile.restituita == "string.array") arr.risultati[ct] <- arr.risultati[ct]
+    # 
+    #       if(length(arr.cose.da.risolvere)>1 & (tipo.variabile.restituita == "null" |
+    #                                             tipo.variabile.restituita == "numeric.array" |
+    #                                             tipo.variabile.restituita == "string.array") ) {
+    #         stop("\n Errore, in un set ci sono piu' elementi che concorrono alla risoluzione ma almeno uno di essi e' un array o vale NULL")
+    #       }
+    #     }
+    #     # e'un separatore'
+    #     else  {   lst.risultati[[ as.character(ct)  ]] <- arr.cose.da.risolvere[ct] }   
+    #     if(length(arr.cose.da.risolvere)>1)  browser()
+    #   }
+    #   if(length(arr.cose.da.risolvere)==1)  {
+    #     res <- lst.risultati[[ as.character(ct)  ]]
+    #   }  else  { 
+    #     browser()
+    #   }
+    # 
+    # } else { stop("\nERRORE: e' evidentemente fallito il pre-processing di un SET") }
+    # browser()
+    # if("( fi_long_dx * fi_antpos_dx * fi_trasv_dx *437/1000  )" == secondo.membro) browser()
+    
+    argomento.multi.token <- FALSE
+    if(!is.na(script.cursor)) { 
+      if( mem.struct$script.structures$set.statement[[as.character(script.cursor)]]$exitCode == 0 ) {
+        argomento.multi.token <- TRUE
+        mmatrice <- mem.struct$script.structures$set.statement[[as.character(script.cursor)]]$matriceElementiRilevati
+        # risolvi ogni elemento della matrice (escludendo il primo)
+        stringa.parziale <- "";
+        for(ct in 1:(dim(mmatrice)[1]))    {
+          # if("( fi_long_dx * fi_antpos_dx * fi_trasv_dx *437/1000  )" == secondo.membro) browser()
+
+          if(mmatrice[ct,"stato"] == "token" ) {
+            # cerca: se e' gia' presente in memoria, usa quello, altrimenti cerca di risolverlo chiamando
+            # ricorisvamente il risolutore
+            if( mmatrice[ct,"substr"] %in% names(mem.struct$var)) {
+              risultatoElemento <- mem.struct$var[[ mmatrice[ct,"substr"] ]]$value
+            }
+            else {
+              tmptmp.risultato <- invoca.ricorsivamente.HLL(HLL.script =  mmatrice[ct,"substr"])
+              risultatoElemento <- tmptmp.risultato$valore
+            }
+# if("set idEcoTiroide  = Evento.id_ecoTiroide"==stringa) browser()
+      # -im
+            tipo.variabile.restituita <- "unknown"
+            if(is.null(risultatoElemento)==TRUE) { tipo.variabile.restituita <- "null" }
+            else {
+              if(is.a.number(risultatoElemento)==TRUE) { tipo.variabile.restituita <- "numeric" }
+              if(is.a.string(risultatoElemento)==TRUE) { tipo.variabile.restituita <- "string" }
+              if(is.a.quoted.string(risultatoElemento)==TRUE) { tipo.variabile.restituita <- "quoted.string" }
+              if(is.a.numeric.array(risultatoElemento)==TRUE) { tipo.variabile.restituita <- "numeric.array" }
+              if(is.a.string.array(risultatoElemento)==TRUE) { tipo.variabile.restituita <- "string.array" }
+            }
+
+            if(tipo.variabile.restituita == "numeric") risultatoElemento <- as.numeric(risultatoElemento)
+            if(tipo.variabile.restituita == "string") risultatoElemento <- paste(c("'",risultatoElemento,"'"),collapse = '')
+            if(tipo.variabile.restituita == "quoted.string") risultatoElemento <- risultatoElemento
+            if(tipo.variabile.restituita == "unknown") stop("\n caso strano di tipo variabile non identificata")
+
+            # i casi di 'null'  e/o di array vanno bene SOLO se e' una assegnazione diretta!!!!!
+            if(tipo.variabile.restituita == "null") risultatoElemento <- global.null.value
+            if(tipo.variabile.restituita == "numeric.array") risultatoElemento <- as.numeric(risultatoElemento)
+            if(tipo.variabile.restituita == "string.array") risultatoElemento <- risultatoElemento
+
+            if((dim(mmatrice)[1])>2 & (tipo.variabile.restituita == "null" |
+                                                  tipo.variabile.restituita == "numeric.array" |
+                                                  tipo.variabile.restituita == "string.array") ) {
+              stop("\n Errore, in un set ci sono piu' elementi che concorrono alla risoluzione ma almeno uno di essi e' un array o vale NULL")
+            }
+         # -fm   
+            
+          } else {
+            risultatoElemento <- mmatrice[ct,"substr"]
+          }
+          # componi la stringa
+          stringa.parziale <- str_trim(str_c( stringa.parziale , risultatoElemento ))
+        }
+        if(stringa.parziale!="null") {
+          stringa.settatrice <- paste(c("stringa.parziale <- ",stringa.parziale),collapse = '')
+          eval(parse(text=stringa.settatrice))              
+        }
+        else {
+          stringa.parziale <- stringa.parziale
+        }       
+      }
+      # browser()
+      # stringa.settatrice <- paste(c("stringa.parziale <- ",stringa.parziale),collapse = '')
+      # eval(parse(text=stringa.settatrice))
+      # ECCOMI
+    }
+    # if("( fi_long_dx * fi_antpos_dx * fi_trasv_dx *437/1000  )" == secondo.membro) browser()
+    if(argomento.multi.token == FALSE) { 
+      res <- invoca.ricorsivamente.HLL(HLL.script =  secondo.membro)
+    } else { res <- list("valore"=stringa.parziale ) }
     
     tipo.variabile.restituita <- "unknown"
-    if(is.a.number(res$valore)==TRUE) { tipo.variabile.restituita <- "numeric" }
-    if(is.a.string(res$valore)==TRUE) { tipo.variabile.restituita <- "string" }
-    if(is.a.quoted.string(res$valore)==TRUE) { tipo.variabile.restituita <- "quoted.string" }
-    if(is.a.numeric.array(res$valore)==TRUE) { tipo.variabile.restituita <- "numeric.array" }
-    if(is.a.string.array(res$valore)==TRUE) { tipo.variabile.restituita <- "string.array" }
-    
-    if(tipo.variabile.restituita == "unknown") nuovo.valore <- res$valore
+    if(is.null(res$valore)==TRUE) { tipo.variabile.restituita <- "null" }
+    else { 
+      if(is.a.number(res$valore)==TRUE) { tipo.variabile.restituita <- "numeric" }
+      if(is.a.string(res$valore)==TRUE) { tipo.variabile.restituita <- "string" }
+      if(is.a.quoted.string(res$valore)==TRUE) { tipo.variabile.restituita <- "quoted.string" }
+      if(is.a.numeric.array(res$valore)==TRUE) { tipo.variabile.restituita <- "numeric.array" }
+      if(is.a.string.array(res$valore)==TRUE) { tipo.variabile.restituita <- "string.array" }
+    }
+      
+    if(tipo.variabile.restituita == "null") nuovo.valore <- global.null.value
     if(tipo.variabile.restituita == "numeric") nuovo.valore <- as.numeric(res$valore)
     if(tipo.variabile.restituita == "string") nuovo.valore <- res$valore
     if(tipo.variabile.restituita == "quoted.string") nuovo.valore <- res$valore
@@ -547,14 +689,17 @@ HLL <- function() {
   # ----------------------------------------------------------------
   preProcessing.Script<-function( script.lines ) {
     command <- list()
-    # browser()
+    
     # Scorri tutte le righe alla ricerca degli elementi che possono interessare
     # (IF, FOR, etc..)
-    matrice <- c(); lst.tmp.ris<-list()
+    matrice <- c(); matrice.set <- c()
+    lst.tmp.ris<-list(); lst.set.stt <- list()
+    
     for(riga in 1:length(script.lines)) {
       command["if"]<- str_extract(string = script.lines[riga] , pattern = "^[ ]*if[ ]*\\(.*\\)[ ]*then[ ]*$")
       command["endif"]<- str_extract(string = script.lines[riga] , pattern = "^[ ]*endif[ ]*$")
       command["else"]<- str_extract(string = script.lines[riga] , pattern = "^[ ]*else[ ]*$")
+      command["set"]<- str_extract(string = script.lines[riga], pattern = "^[ ]*set[ ]+[A-Za-z0-9._]+[ ]*=")
       # E' un IF?
       if(!is.na(command["if"])) {
         # Fai il preprocessing della riga di IF, per estrarre su quali variabili lavora
@@ -569,19 +714,46 @@ HLL <- function() {
       if(!is.na(command["else"])) {
         matrice <- rbind(matrice, c(riga, "else",FALSE))
       }        
+      # E' un set?
+      if(!is.na(command["set"])) {
+        tmp.poss <- str_locate(string = script.lines[riga],pattern = "=" )
+        tmp.set <- str_locate(string= script.lines[riga],pattern = "set" )
+        variabile <- str_trim(str_sub(string = script.lines[riga],start = tmp.set[1,"end"]+1,end = tmp.poss[1,"end"]-1))
+        argomento <- str_trim(str_sub(string = script.lines[riga],start = tmp.poss[1,"end"]+1 ,end = str_length(script.lines[riga])))
+
+        # da.elaborare <- pre.processing.if(  script.lines , riga , argomento.gia.estratto = argomento) 
+        # da.elaborare.finale <- str_c( da.elaborare$arrayCondizioneDaRicostruire ,collapse = "#")
+        
+        # Attenzione! Se soddisfa il patternmatching con un accesso ad oggetto, NON SPLITTARLO!!!
+        # match.obj.1<- str_extract(string = str_c( da.elaborare$arrayCondizioneDaRicostruire ,collapse = ""), pattern = "^[ ]*^[a-zA-Z _]+\\(.*\\)[ ]*\\..*$")
+        # match.obj.2<- str_extract(string = str_c( da.elaborare$arrayCondizioneDaRicostruire ,collapse = ""), pattern = "^[ ]*[a-zA-Z]+[a-zA-Z0-9_]*\\.[a-zA-Z]+[a-zA-Z0-9_]*[ ]*$")
+        # if(!is.na(match.obj.1) |  !is.na(match.obj.2)) {
+        #   da.elaborare.finale <- str_c( da.elaborare$arrayCondizioneDaRicostruire ,collapse = "")
+        # }    
+        
+        # Prendila matrice dei token con le relative posizioni
+        lst.set.stt[[as.character(riga)]]  <-  ricavaElementiDaRisolvereDaStringa( argomento )
+        
+        # da.elaborare <- da.elaborare.finale
+        # matrice.set <- rbind(matrice.set,c(riga, variabile, argomento ,da.elaborare))
+        # colnames(matrice.set)<-c("riga","variabile","argomento","da.elaborare")
+        
+      }           
     }
-    
+    # browser()
     # Ora ricava la struttura degli if-then-else in tutto lo script, arricchendo la lista
     # costruita fino ad ora. (cosi' mi sara' piu' facile, a run-time, zompare qua e la' perche'
     # gia' conoscero' la struttura)
     lst.tmp.ris <- ricava.struttura.if( matrice = matrice, lst.tmp.ris = lst.tmp.ris )
+    # lst.set.stt <- list( "matrice.set"=matrice.set)
   
     return( 
-      list( "if.else.endif"= lst.tmp.ris )
+      list( "if.else.endif"= lst.tmp.ris,
+            "set.statement" = lst.set.stt)
     )
     
   }
-  
+
   ricava.struttura.if<-function( matrice , lst.tmp.ris ) {
     # Se ci sono degli IF, ricava le posizioni dei corrispondenti ELSE, ENDIF, cosi' da rendere
     # piu' facile il calcolo successivamente
@@ -628,21 +800,23 @@ HLL <- function() {
     
     return( "lst.tmp.ris"=lst.tmp.ris)
   }
-  pre.processing.if<-function(  script , num.riga ) {
+  pre.processing.if<-function(  script , num.riga , argomento.gia.estratto = NA) {
     
-    stringa <- script[num.riga]
-    # ESTRAI LA CONDIZIONE dell'IF
-    tmp.stringa <- str_sub(string = stringa,
-                           start = str_locate(string = stringa,pattern = "\\(")[1,1]+1,
-                           end = str_length(stringa))
-    finale <- str_locate_all(string = tmp.stringa, pattern = "\\)")
-    tmp.stringa <- str_sub( string = tmp.stringa,
-                            start = 1,
-                            end = unlist(finale)[  length(unlist(finale)) ]-1 )
-    tmp.stringa <- str_trim(tmp.stringa)
-    # browser()
-    # preferisco lavorare con 'stringa'
-    stringa <- tmp.stringa
+    if(is.na(argomento.gia.estratto)) { 
+      stringa <- script[num.riga]
+      # ESTRAI LA CONDIZIONE dell'IF
+      tmp.stringa <- str_sub(string = stringa,
+                             start = str_locate(string = stringa,pattern = "\\(")[1,1]+1,
+                             end = str_length(stringa))
+      finale <- str_locate_all(string = tmp.stringa, pattern = "\\)")
+      tmp.stringa <- str_sub( string = tmp.stringa,
+                              start = 1,
+                              end = unlist(finale)[  length(unlist(finale)) ]-1 )
+      tmp.stringa <- str_trim(tmp.stringa)
+      # browser()
+      # preferisco lavorare con 'stringa'
+      stringa <- tmp.stringa
+    } else { stringa <- argomento.gia.estratto; tmp.stringa <- argomento.gia.estratto }
     
     # sostituisci "#" laddove il contenuto della condizione e' fra virgolette
     dentro <- FALSE
@@ -751,6 +925,12 @@ HLL <- function() {
     if(length(mem)>0) mem.struct <<- mem
     if(length(classMethods)>0) mem.struct$class.methods <<- classMethods
   }
+  getClassMethods<-function(  ) {
+    return(mem.struct$class.methods)
+  }  
+  get<-function(  ) {
+    return(mem.struct)
+  }    
   # ----------------------------------------------------------------
   # Costruttore
   # ----------------------------------------------------------------
@@ -761,6 +941,7 @@ HLL <- function() {
     mem.struct$define.context<<-list()
     mem.struct$implicit.PK<<-NA
     mem.struct$script.structures <<-list()
+    global.null.value<<-"null"
   }
   costructor()
   # ----------------------------------------------------------------

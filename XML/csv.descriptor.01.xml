@@ -1,6 +1,6 @@
 <xml>
   <rows>
-    <id type='enum'>182,183,184,185,186,187,188,189,190</id>
+    <id type='enum'>187,188,189</id>
   </rows>
   
   <section class='Paziente' nuovo='ss'>
@@ -12,6 +12,12 @@
       <column>dataEvento</column>
       <column>descrizione</column>
       <column>dimensioneTiroide</column>
+
+      <section class='Esame' method='linkEventoEsami'>
+        <column>descrizione</column>
+        <column>valore</column>
+      </section>
+      
     </section>
     
   </section>

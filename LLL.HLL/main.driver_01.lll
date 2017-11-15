@@ -13,8 +13,23 @@ define CLASS EcoTiroide
   attribute sxFiTrasverso = _A10_SX_FI_TRASVERSO
 enddefine
 
-
 define RELATION hasDetails
   master = Evento.id
   slave = EcoTiroide.EventId
+enddefine
+
+define CLASS Esame
+  link.name =  mainDB
+  table.name = _A12_ESAMI
+  primary.key = _A12_COD_ESAME
+  attribute id = _A12_COD_ESAME
+  attribute idPaziente = _A02_C_ANAGRAFICA
+  attribute idEvento = _A03_C_CRONOLOGICA
+  attribute descrizione = SQL{ SELECT _T15_ESAME FROM _T15_ESAMI, _A12_ESAMI WHERE _A12_ESAMI._T15_C_ESAME = _T15_ESAMI._T15_COD_ESAME AND _A12_ESAMI._A12_COD_ESAME='$primary.key$' }
+  attribute valore = _A12_ESITO_ESAME
+enddefine
+
+define RELATION linkEventoEsami
+  master = Evento.id
+  slave = Esame.idEvento
 enddefine
