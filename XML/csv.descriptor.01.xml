@@ -1,6 +1,7 @@
 <xml>
   <rows>
     <id type='enum'>187,188,189</id>
+    <id type='HLL'>Paziente.engaged_in</id>
   </rows>
   
   <section class='Paziente' nuovo='ss'>

@@ -33,3 +33,9 @@ define RELATION linkEventoEsami
   master = Evento.id
   slave = Esame.idEvento
 enddefine
+
+define RELATION engaged_in
+  master = Paziente.id
+  asc order by = id
+  filter = studio like '%-6-%'
+enddefine

@@ -38,6 +38,7 @@ HLL <- function() {
       # Parse della stringa:
       # SE NON E' APERTO UN CONTESTO :
       if( length(mem.struct$define.context)==0) {
+        # cat("\n str.riga=",str.riga)
         res <- execute(script = str.riga , complete.script = arr.righe , script.cursor = indice.riga)
         # Se era un return, restituisci
         if(res$operation.token=="return") return(res)
@@ -166,7 +167,7 @@ HLL <- function() {
   # risolveraa' ricorsivamente le chiamate)
   # ---------------------------------------------------------------
   execute <-  function( script , complete.script = NA , script.cursor = NA) {
-    # cat("\n\t (",script.cursor,")",script)
+    # browser()
 # if( is.na((script.cursor))) browser()
     if(!is.na(script.cursor)) cat("\nS :",script.cursor,":",script)
     stringa <- script
@@ -192,7 +193,10 @@ HLL <- function() {
     # Se e' un' accesso ad un oggetto
     if(!is.na(res["obj"]) | !is.na(res["obj.implicit.PK"])) {
       # if(is.na(script.cursor)) browser()
+      # if(stringa == "Paziente().id") browser()
+      # browser()
       toReturn <- risolvi.accessoAMetodo( stringa, res )
+      # browser()
       return(toReturn)      
     }
     #  RETURN
@@ -331,6 +335,7 @@ HLL <- function() {
       condizione.finale.da.parsare <- arrayCondizioneDaRicostruire
     }
     # maremma maiala, sono esausto. Comunque ci sono: infine possiamo interpretare la condizione
+    # browser()
     esito.condizione <- eval(parse(text=condizione.finale.da.parsare))
     # browser()
     # Ora cerca di capire dove il cursore di eseuczione dello script dovrebbe venire mosso!
@@ -426,12 +431,19 @@ HLL <- function() {
     # if(stringa=="Evento.id_ecoTiroide") browser()
     # toReturn <- risolvi.accessoAMetodo( stringa )
     # Due controlli formali di apertura, giusto per gradire (se caso implicito ma manca la PK)
+    # browser()
+    RelazioneDiTipo <- FALSE
     if(!is.na(res["obj.implicit.PK"])) {
-      if( !("implicit.PK" %in% names(mem.struct)) ) stop("\n non e' stato dichiarata la PK implicita (1)")
-      if( is.na(mem.struct$implicit.PK)) stop("\n non e' stato dichiarata la PK implicita (2)")
-      
       nome.oggetto <- str_trim(sub("\\.[a-zA-Z]+[a-zA-Z0-9_]*[ ]*$" ,"\\1", stringa ))
       attributo <- str_trim(sub("^[ ]*[a-zA-Z]+[a-zA-Z0-9_]*\\." ,"\\1", stringa ))
+    
+      # Cerca di capire SE e' una relazione e, se no, dai errore in caso in cui manchi la PK'
+      # (nel caso di relazione sul solo master, cio' e' ammissibile)
+      RelazioneDiTipo <- LLL.env$is.relation.of( nome.oggetto , attributo , whatInfo="type" )
+      if(RelazioneDiTipo!="master-only") { 
+        if( !("implicit.PK" %in% names(mem.struct)) ) stop("\n non e' stato dichiarata la PK implicita (1)")
+        if( is.na(mem.struct$implicit.PK)) stop("\n non e' stato dichiarata la PK implicita (2)")
+      }
       obj.pk <- mem.struct$implicit.PK
     }
     else {  # CASO ESPLICITO
@@ -442,9 +454,9 @@ HLL <- function() {
       nome.oggetto <- str_trim(sub("+\\(.*\\)[ ]*\\..*$","\\1",stringa))
       attributo <- sub("^[ ]*^[a-zA-Z _]+\\(.*\\)[ ]*\\.[ ]*","\\1",stringa)
     }
-    
+    # browser()
     # invoca eventuali calcoli ricorsivi, per risolvere 'obj.pk' o il valore di 'secondo.membro'
-    if( is.a.number(obj.pk) == FALSE) {
+    if( is.a.number(obj.pk) == FALSE & RelazioneDiTipo!="master-only") {
       # Vediamo se e' una variabile :)
       if( obj.pk %in% names(mem.struct[["var"]]) ) {
         if( mem.struct[["var"]][[obj.pk]]$type=="numeric"  ) {
@@ -458,7 +470,7 @@ HLL <- function() {
     }
     
     # due controlli formali, giusto per gradire
-    if(obj.pk=="") {  cat( "\nmmmhhhh, sono restato senza obj.pk: ", stringa );  stop()  }
+    if(obj.pk=="" & RelazioneDiTipo!="master-only" ) {  cat( "\nmmmhhhh, sono restato senza obj.pk: ", stringa );  stop()  }
     if(nome.oggetto=="") {  cat( "\nmmmhhhh, sono restato senza nome.oggetto: ", stringa );  stop()  }
     if(attributo=="") {  cat( "\nmmmhhhh, sono restato senza attributo: ", stringa );  stop()  }
     
@@ -479,6 +491,7 @@ HLL <- function() {
         # E' una relazione fra due classi?
         if(LLL.env$is.relation.of(className = nome.oggetto, relName=attributo) == TRUE) {
           res <- LLL.env$getEntityRelation(obj.name = nome.oggetto,id = obj.pk, relation.name = attributo)
+          # browser()
           return(list( "valore"=res,
                        "operation.token" = "getEntityRelation",
                        "operation"=stringa))
@@ -498,7 +511,7 @@ HLL <- function() {
     nome.variabile <- str_extract(string = sub("^[ ]*set[ ]*", "\\1", stringa),pattern = "[A-Za-z0-9._]*")
     secondo.membro <- sub("^[ ]*set[ ]+[A-Za-z0-9._]+[ ]*=[ ]*","\\1",stringa)
     
-    # browser()
+    # if(stringa=="set tipo = Evento.descrizione") browser()
     
     # Se il secondo membro e' un numero non stare a farti tante seghe...
     if( is.a.number(secondo.membro) == TRUE ) {
@@ -517,63 +530,24 @@ HLL <- function() {
         "operation"=stringa
       ) )      
     }
-
-    # prendi dalla matrice pre processata per i SET, quelli che sono gli elementi dell'argomento gia' splittati,
-    # cosi' da sapere velocemente cosa devo andare a risolvere
-    # argomento.preprocessato.dalla.matrice <- mem.struct$script.structures$set.statement$matrice.set[ which(mem.struct$script.structures$set.statement$matrice.set[,"riga"]==script.cursor), "da.elaborare"]
-    # if(length(argomento.preprocessato.dalla.matrice) > 0 ) {
-    #   arr.cose.da.risolvere <- unlist(str_split(string = argomento.preprocessato.dalla.matrice,pattern = "#"))
-    #   arr.cose.da.risolvere <- arr.cose.da.risolvere[ which(arr.cose.da.risolvere!="")]
-    #   # verifica se e' qualcosa di composto, che si puo' calcolare diviendo le parti
-    # 
-    #   lst.risultati <- list()
-    #   arr.risultati <- c()
-    #   for(ct in 1:length(arr.cose.da.risolvere))    {
-    #     
-    #     if(!(str_trim(arr.cose.da.risolvere[ct]) %in% c("'","\""," ","+","-","*","/","(",")","|","&","=","!",">","<") )) { 
-    #     # cat("\n =======>",arr.cose.da.risolvere[ct])
-    #       lst.risultati[[ as.character(ct)  ]] <- invoca.ricorsivamente.HLL(HLL.script =  arr.cose.da.risolvere[ct])
-    #       arr.risultati[ct] <- lst.risultati[[ as.character(ct)  ]]$valore
-    # 
-    #       tipo.variabile.restituita <- "unknown"
-    #       if(is.null(arr.risultati[ct])==TRUE) { tipo.variabile.restituita <- "null" }
-    #       else {
-    #         if(is.a.number(arr.risultati[ct])==TRUE) { tipo.variabile.restituita <- "numeric" }
-    #         if(is.a.string(arr.risultati[ct])==TRUE) { tipo.variabile.restituita <- "string" }
-    #         if(is.a.quoted.string(arr.risultati[ct])==TRUE) { tipo.variabile.restituita <- "quoted.string" }
-    #         if(is.a.numeric.array(arr.risultati[ct])==TRUE) { tipo.variabile.restituita <- "numeric.array" }
-    #         if(is.a.string.array(arr.risultati[ct])==TRUE) { tipo.variabile.restituita <- "string.array" }
-    #       }
-    # 
-    #       if(tipo.variabile.restituita == "numeric") arr.risultati[ct] <- as.numeric(arr.risultati[ct])
-    #       if(tipo.variabile.restituita == "string") arr.risultati[ct] <- paste(c("'",arr.risultati[ct],"'"),collapse = '')
-    #       if(tipo.variabile.restituita == "quoted.string") arr.risultati[ct] <- arr.risultati[ct]
-    #       if(tipo.variabile.restituita == "unknown") stop("\n caso strano di tipo variabile non identificata")
-    # 
-    #       # i casi di 'null'  e/o di array vanno bene SOLO se e' una assegnazione diretta!!!!!
-    #       if(tipo.variabile.restituita == "null") arr.risultati[ct] <- global.null.value
-    #       if(tipo.variabile.restituita == "numeric.array") arr.risultati[ct] <- as.numeric(arr.risultati[ct])
-    #       if(tipo.variabile.restituita == "string.array") arr.risultati[ct] <- arr.risultati[ct]
-    # 
-    #       if(length(arr.cose.da.risolvere)>1 & (tipo.variabile.restituita == "null" |
-    #                                             tipo.variabile.restituita == "numeric.array" |
-    #                                             tipo.variabile.restituita == "string.array") ) {
-    #         stop("\n Errore, in un set ci sono piu' elementi che concorrono alla risoluzione ma almeno uno di essi e' un array o vale NULL")
-    #       }
-    #     }
-    #     # e'un separatore'
-    #     else  {   lst.risultati[[ as.character(ct)  ]] <- arr.cose.da.risolvere[ct] }   
-    #     if(length(arr.cose.da.risolvere)>1)  browser()
-    #   }
-    #   if(length(arr.cose.da.risolvere)==1)  {
-    #     res <- lst.risultati[[ as.character(ct)  ]]
-    #   }  else  { 
-    #     browser()
-    #   }
-    # 
-    # } else { stop("\nERRORE: e' evidentemente fallito il pre-processing di un SET") }
+    # Se il secondo membro e' un oggetto, diretto od indiretto, risolvilo senza tante seghe
+    test.str<-list()
+    test.str["obj"]<- str_extract(string = secondo.membro, pattern = "^[ ]*^[a-zA-Z _]+\\(.*\\)[ ]*\\..*$")
+    test.str["obj.implicit.PK"]<- str_extract(string = secondo.membro, pattern = "^[ ]*[a-zA-Z]+[a-zA-Z0-9_]*\\.[a-zA-Z]+[a-zA-Z0-9_]*[ ]*$")
     # browser()
-    # if("( fi_long_dx * fi_antpos_dx * fi_trasv_dx *437/1000  )" == secondo.membro) browser()
+    if( !is.na(test.str["obj"]) | !is.na(test.str["obj.implicit.PK"]) ) {
+      # invoca il calcolo
+      risultatoElemento <- invoca.ricorsivamente.HLL(HLL.script =  secondo.membro)
+      # indovina il tipo
+      lst.dati.tipo.variabile <- definisci.tipo.variabile(risultatoElemento  = risultatoElemento$valore)
+      # aggiorna la memoria e chiudi
+      proxy.mem.struct.set(varName = nome.variabile, value = lst.dati.tipo.variabile$risultatoElemento, type = lst.dati.tipo.variabile$tipo.variabile.restituita)
+      return( list(
+        "valore" = lst.dati.tipo.variabile$risultatoElemento,
+        "operation.token" = "SET",
+        "operation"=stringa
+      ) )
+    }
     
     argomento.multi.token <- FALSE
     if(!is.na(script.cursor)) { 
@@ -583,7 +557,6 @@ HLL <- function() {
         # risolvi ogni elemento della matrice (escludendo il primo)
         stringa.parziale <- "";
         for(ct in 1:(dim(mmatrice)[1]))    {
-          # if("( fi_long_dx * fi_antpos_dx * fi_trasv_dx *437/1000  )" == secondo.membro) browser()
 
           if(mmatrice[ct,"stato"] == "token" ) {
             # cerca: se e' gia' presente in memoria, usa quello, altrimenti cerca di risolverlo chiamando
@@ -595,42 +568,36 @@ HLL <- function() {
               tmptmp.risultato <- invoca.ricorsivamente.HLL(HLL.script =  mmatrice[ct,"substr"])
               risultatoElemento <- tmptmp.risultato$valore
             }
-# if("set idEcoTiroide  = Evento.id_ecoTiroide"==stringa) browser()
-      # -im
-            tipo.variabile.restituita <- "unknown"
-            if(is.null(risultatoElemento)==TRUE) { tipo.variabile.restituita <- "null" }
-            else {
-              if(is.a.number(risultatoElemento)==TRUE) { tipo.variabile.restituita <- "numeric" }
-              if(is.a.string(risultatoElemento)==TRUE) { tipo.variabile.restituita <- "string" }
-              if(is.a.quoted.string(risultatoElemento)==TRUE) { tipo.variabile.restituita <- "quoted.string" }
-              if(is.a.numeric.array(risultatoElemento)==TRUE) { tipo.variabile.restituita <- "numeric.array" }
-              if(is.a.string.array(risultatoElemento)==TRUE) { tipo.variabile.restituita <- "string.array" }
-            }
-
-            if(tipo.variabile.restituita == "numeric") risultatoElemento <- as.numeric(risultatoElemento)
-            if(tipo.variabile.restituita == "string") risultatoElemento <- paste(c("'",risultatoElemento,"'"),collapse = '')
-            if(tipo.variabile.restituita == "quoted.string") risultatoElemento <- risultatoElemento
-            if(tipo.variabile.restituita == "unknown") stop("\n caso strano di tipo variabile non identificata")
-
-            # i casi di 'null'  e/o di array vanno bene SOLO se e' una assegnazione diretta!!!!!
-            if(tipo.variabile.restituita == "null") risultatoElemento <- global.null.value
-            if(tipo.variabile.restituita == "numeric.array") risultatoElemento <- as.numeric(risultatoElemento)
-            if(tipo.variabile.restituita == "string.array") risultatoElemento <- risultatoElemento
-
+            
+            # Fai le elucubrazioni per cercare di indovinare il tipo di variabile 
+            lst.dati.tipo.variabile <- definisci.tipo.variabile(risultatoElemento  = risultatoElemento) 
+            # estrai il tipo ed il valore
+            tipo.variabile.restituita <- lst.dati.tipo.variabile$tipo.variabile.restituita
+            risultatoElemento <- lst.dati.tipo.variabile$risultatoElemento
+            if(tipo.variabile.restituita=="string") risultatoElemento <- str_c("'",risultatoElemento,"'")
+            
             if((dim(mmatrice)[1])>2 & (tipo.variabile.restituita == "null" |
                                                   tipo.variabile.restituita == "numeric.array" |
                                                   tipo.variabile.restituita == "string.array") ) {
               stop("\n Errore, in un set ci sono piu' elementi che concorrono alla risoluzione ma almeno uno di essi e' un array o vale NULL")
             }
-         # -fm   
-            
+
           } else {
             risultatoElemento <- mmatrice[ct,"substr"]
           }
-          # componi la stringa
-          stringa.parziale <- str_trim(str_c( stringa.parziale , risultatoElemento ))
+          # componi la stringa. Se il risultato e' un array, usa direttamente quello
+          # (in teoria dal controllo sopra non dovrei arrivarci se avessi piu' token. Spero.)
+          # if(tipo.variabile.restituita == "null" | 
+          #    tipo.variabile.restituita == "numeric.array" |
+          #    tipo.variabile.restituita == "string.array")  {      
+          #   stringa.parziale <- risultatoElemento
+          #    }
+          # else { 
+            stringa.parziale <- str_trim(str_c( stringa.parziale , risultatoElemento ))
+          # }
         }
-        if(stringa.parziale!="null") {
+        # if(stringa.parziale!="null" & length(stringa.parziale)==1) {
+        if(stringa.parziale!="null" ) {
           stringa.settatrice <- paste(c("stringa.parziale <- ",stringa.parziale),collapse = '')
           eval(parse(text=stringa.settatrice))              
         }
@@ -678,6 +645,39 @@ HLL <- function() {
     ) ) 
     
   }
+  # ----------------------------------------------------------------
+  # definisci.tipo.variabile
+  # cerca di indovinare il tipo della variabile in funzione del suo contenuto
+  # ----------------------------------------------------------------  
+  definisci.tipo.variabile<-function(risultatoElemento) { 
+
+    tipo.variabile.restituita <- "unknown"
+    if(is.null(risultatoElemento)==TRUE) { tipo.variabile.restituita <- "null" }
+    else {
+      if(is.a.number(risultatoElemento)==TRUE) { tipo.variabile.restituita <- "numeric" }
+      if(is.a.string(risultatoElemento)==TRUE) { tipo.variabile.restituita <- "string" }
+      if(is.a.quoted.string(risultatoElemento)==TRUE) { tipo.variabile.restituita <- "quoted.string" }
+      if(is.a.numeric.array(risultatoElemento)==TRUE) { tipo.variabile.restituita <- "numeric.array" }
+      if(is.a.string.array(risultatoElemento)==TRUE) { tipo.variabile.restituita <- "string.array" }
+    }
+    
+    if(tipo.variabile.restituita == "numeric") risultatoElemento <- as.numeric(risultatoElemento)
+    # if(tipo.variabile.restituita == "string") risultatoElemento <- paste(c("'",risultatoElemento,"'"),collapse = '')
+    if(tipo.variabile.restituita == "string") risultatoElemento <- risultatoElemento
+    if(tipo.variabile.restituita == "quoted.string") risultatoElemento <- risultatoElemento
+    if(tipo.variabile.restituita == "unknown") stop("\n caso strano di tipo variabile non identificata")
+    
+    # i casi di 'null'  e/o di array vanno bene SOLO se e' una assegnazione diretta!!!!!
+    if(tipo.variabile.restituita == "null") risultatoElemento <- global.null.value
+    if(tipo.variabile.restituita == "numeric.array") risultatoElemento <- as.numeric(risultatoElemento)
+    if(tipo.variabile.restituita == "string.array") risultatoElemento <- risultatoElemento
+    
+    return(list(
+              "tipo.variabile.restituita"=tipo.variabile.restituita,
+              "risultatoElemento"=risultatoElemento
+              ))
+    # -fm 
+  }  
   # ********************************************************************
   # FINE Sezione di risoluzione della semantica
   # ********************************************************************  

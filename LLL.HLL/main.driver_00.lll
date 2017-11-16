@@ -13,6 +13,7 @@ define CLASS Paziente
   attribute nome = _A02_NOME
   attribute cognome = _A02_COGNOME
   attribute dataNascita = _A02_DATA_NASCITA
+  attribute studio = _A02_CC_STUDIO_V2
 enddefine
 
 define CLASS Evento
