@@ -19,6 +19,7 @@ RDBMS <- function( RDBMS.type = "mysql", user="root", password="", host="127.0.0
   query <- function( query ) {
     db.connection <- dbConnect(MySQL(), user=param.user, password=param.password, dbname=dbname, host=param.host)
     rs = dbSendQuery(db.connection, query )
+    cat("\n\t\tSQL: ",query)
     data.q = fetch(rs, n=-1)
     dbClearResult(rs)
     dbDisconnect(db.connection)

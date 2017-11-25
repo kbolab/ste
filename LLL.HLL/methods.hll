@@ -32,3 +32,17 @@ define dimensioneTiroide as method of Evento
   endif
   return( result  )
 enddefine
+
+define getLastEvent as method of Paziente
+  set arr_Eventi = Paziente.hasClinicalEvents
+  set data = 'null'
+  foreach arr_Eventi as cursor do
+   set valore = Evento(cursor).dataEvento
+   if( valore != 'null') then
+    set data = valore
+   endif
+  endforeach
+  return(data)
+enddefine
+
+

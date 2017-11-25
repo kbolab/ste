@@ -29,6 +29,7 @@ define CLASS Esame
   attribute valore = _A12_ESITO_ESAME
 enddefine
 
+
 define RELATION linkEventoEsami
   master = Evento.id
   slave = Esame.idEvento

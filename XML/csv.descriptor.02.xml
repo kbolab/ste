@@ -8,18 +8,16 @@
     <column>id</column>
     <column>nome</column>
     <column>cognome</column>
-    <column>getLastEvent</column>
     
     
     <section class='Evento' method='hasClinicalEvents'>
       <column>dataEvento</column>
       <column>descrizione</column>
       <column>dimensioneTiroide</column>
-
-      <section class='Esame' method='linkEventoEsami'>
-        <column>descrizione</column>
-        <column>valore</column>
-      </section>
+      <column>istotipo</column>
+      <column>T</column>
+      <column>N</column>
+      <column>M</column>
 
     </section>
   </section>

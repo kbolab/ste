@@ -37,15 +37,21 @@ harvester<-function( ) {
   # create.virtual.csv
   # crea un CSV fisico, partendo dai dati del descrittore
   # -------------------------------------------------  
-  calcola.sottoblocco <- function( lista , livello = 1 , id, quante.colonne.fatte = 0 ){
+  calcola.sottoblocco <- function( lista , livello = 1 , id, quante.colonne.fatte = 0 , debug = 0){
 # if(id==8799) browser()
+    # browser()
     classe <- lista$.attrs["class"] 
 # if(id==69 & livello==2) browser()
+    cat("\n ****************************\n id = ",id," (",livello,")\n******************************")
+    # if(id==2277) browser()
+    # if( id == 2405 ) browser()
     # calcolo le mie colonne
     quante.colonne <- sum(names(lista)=="column")
     arr.def.colonna <- c()
     nomi.intestazione.colonne <- as.character(lista[names( lista) == "column"])
+    # if( id==18744 ) browser()
     for( n.col in 1:quante.colonne ) {
+      # if( id == 2405 ) browser()
       # prendi il contenuto della cella
       contenuto.colonna <- as.character(lista[names( lista) == "column"][n.col])
       # e componi il nome dell'attributo 
@@ -53,13 +59,16 @@ harvester<-function( ) {
       
       tmp.HLL <- HLL()
       imported.class.methods <- global.obj.HLL$getClassMethods()
-      tmp.HLL$setEnv(env = global.obj.LLL, mem = list("implicit.PK"=id),classMethods = imported.class.methods )
+      # browser()
+      tmp.HLL$setEnv(env = global.obj.LLL, mem = list("implicit.PK"=id,"running.class"="",running.method=""),classMethods = imported.class.methods )
+      
       res <- tmp.HLL$execute(script = stringa.attributo)
       arr.id <- res$valore
+      if(arr.id=="null") arr.id <- ""
 
       arr.def.colonna<-c(arr.def.colonna,arr.id)
     }
-
+    # if( id==18744 ) browser()
     # se sei una foglia, ritorna
     if( !("section" %in% names(lista) )) {
       if(is.null(dim(arr.def.colonna))) 
@@ -81,14 +90,18 @@ harvester<-function( ) {
     # ok, proviamo. invece di restituire c() rimanda indietro un array con almeno il numero di colonne mancanti
     # -im
     # if(is.null(arr.id)) return(c())
-    if(is.null(arr.id))  { 
-      toReturn <- c(arr.def.colonna, rep("",global.numero.colonne.totale - quante.colonne.fatte - length(arr.def.colonna)))
-      return(toReturn)
-    }      
+    if( !(length(arr.id)>1)) { 
+      if(is.null(arr.id) | arr.id=="null")  { 
+        toReturn <- c(arr.def.colonna, rep("",global.numero.colonne.totale - quante.colonne.fatte - length(arr.def.colonna)))
+        return(toReturn)
+      }      
+    }
     # -fm
     
     tot.sottomatrice <- c()
+    # if(id==2405) browser()
     for( i in 1:length(arr.id)) { 
+      # if(arr.id[i]==2277) browser()
       sottomatrice <- calcola.sottoblocco(lista = lista$section, livello = livello + 1, id = arr.id[i] , quante.colonne.fatte + quante.colonne)
       # browser()
       tot.sottomatrice <- rbind(tot.sottomatrice,sottomatrice)
@@ -100,6 +113,7 @@ harvester<-function( ) {
     # if(!(is.null(nrow(tot.sottomatrice)))) {
     #   tot.sottomatrice <- ncol(master.matrice),rep(" ",global.numero.colonne.totale)
     # } 
+    # if(2277 %in% arr.id) browser()
     master.matrice <- matrix(rep(arr.def.colonna,nrow(tot.sottomatrice)) , nrow = nrow(tot.sottomatrice) ,byrow = T)
     colnames(master.matrice)<-nomi.intestazione.colonne
     matrice.completa <- cbind(master.matrice,tot.sottomatrice  )

@@ -8,12 +8,29 @@ LLL <- function() {
   global.DB.connectors<-list()
 
   mem.struct <- list()
+  
+  # ---------------------------------------------------------------
+  # Fai il LAOD di uno script
+  # (Fai anche il Parsing SEMANTICO)
+  # ---------------------------------------------------------------  
+  loadScript <- function(filename = NA, script = NA){
+    if(!is.na(filename)) {  
+      text <- paste(readLines(con = filename,warn = F),collapse = "\n")
+      parseScript(script = text )
+      return()
+    }      
+    if(!is.na(script)) { 
+      parseScript(script = text)
+      return()
+    }
+    stop("qualcosa devi passare...")
+  }
   # ---------------------------------------------------------------
   # Fai il PARSE di uno script
   # (Parsing SEMANTICO)
   # ---------------------------------------------------------------
   parseScript<- function( script ) {
-cat("\n****",script)
+# cat("\n****",script)
     # splitta le definizioni sulla base del "enddefine" in quanto è quello che non ha di fatto attributi
     singole.definizioni <- unlist(str_split(string = script, pattern = "\nenddefine"))
     singole.definizioni <- singole.definizioni[  which(singole.definizioni != "")]
@@ -143,6 +160,7 @@ cat("\n****",script)
       lst.possibili.comandi<-list("link.name"=list("synt.type"=1),
                                   "table.name"=list("synt.type"=1),
                                   "primary.key"=list("synt.type"=1),
+                                  "filter"=list("synt.type"=1),
                                   "attribute"=list("synt.type"=2)
                                   )
     }
@@ -156,11 +174,15 @@ cat("\n****",script)
       )
     }
 
+    
     trovato <- FALSE
     # provali tutti e fermati quando trovi quello giusto
     for(comando in names(lst.possibili.comandi)) {
+      # cat("\n COMANDO=",comando)
+      
       # Parsing della sintassi di tipo 1
       if( lst.possibili.comandi[[comando]]$synt.type == 1 ) {
+        # if(str_trim(stringa)== "filter = SQL{ _A03_VALIDO = '1' }") browser()
         res.1<- str_locate(string = stringa,pattern = paste( c("^[ ]*",comando,"[ ]*=") ,collapse = '') )
         if(sum(is.na(res.1)) == 0  ) {
           trovato <- TRUE;
@@ -171,8 +193,10 @@ cat("\n****",script)
       }
       # Parsing della sintassi di tipo 2
       if( lst.possibili.comandi[[comando]]$synt.type == 2 ) {
+        # if(str_trim(stringa)== "filter = SQL{ _A03_VALIDO = '1' }") browser()
         # estrai la prima parte (il nome del comando)
         res.1<- str_locate(string = stringa,pattern = paste( c("^[ ]*",comando,"[ ]+") ,collapse = '') )
+        # res.1<- str_locate(string = stringa,pattern = paste( c("^[ ]*",comando,"[ ]*") ,collapse = '') )
         # se non torna, dai errore di sintassi
         if(!(sum(is.na(res.1)) == 0  ) ) {
           return(list("comando"=list() , "error"=TRUE, "err.msg"=paste(c("Syntax error (1) in: ",stringa,""),collapse = '')  ))
@@ -190,6 +214,7 @@ cat("\n****",script)
         return(list("comando"=list("w1"=comando,"w2"=nome.primo.elemento,"w3"=nome.secondo.elemento) , "error"=FALSE))
       }
     }
+    if(str_trim(stringa)== "filter = SQL{ _A03_VALIDO = '1' }") browser()
     # errore di sintassi
     return(list("comando"=list() , "error"=TRUE, "err.msg"=paste(c("Syntax error (3) in: ",stringa,""),collapse = '')  ))
   }
@@ -221,8 +246,15 @@ cat("\n****",script)
     # table.field <- strutt$attribute$nome
     table.field <- strutt$attribute[[attr.name]]
     link.name <- strutt$link.name
+    filter <- strutt$filter
     # cat("\n ",table.field)
-    # browser()
+
+    # Risolvi il filtro, se c'e'
+    if(!is.null(filter)) { 
+      filter.tmp.first <- str_locate_all(string = filter,pattern = "\\{")[[1]][1]
+      filter.tmp.second <- str_locate_all(string = filter,pattern = "\\}")[[1]][1]
+      filter.query <- str_trim(str_sub(string = filter,start = filter.tmp.first+1,end = filter.tmp.second-1))
+    } else filter.query <- " 1 = 1"
     
     # E' di tipo SQL? 
     tipo.attributo <- "normale"
@@ -234,8 +266,9 @@ cat("\n****",script)
       query <- str_trim(str_sub(string = table.field,start = first+1,end = second-1))
       q <- str_replace_all(string = query,pattern = "\\$primary.key\\$",as.character(id))
     }
+    # browser()
     if(tipo.attributo=="normale")   {
-      q <- str_c("select ",table.field," as res from ",nomeTabella," where ",primary.key," = '",id,"';")
+      q <- str_c("select ",table.field," as res from ",nomeTabella," where ",filter.query," and ",primary.key," = '",id,"';")
     }
     # browser()
     # lancia la query
@@ -288,6 +321,8 @@ cat("\n****",script)
        sql.filtering <- str_c( sql.filtering," and ", nome.campo.DB, " ", argomento )
        # browser()
     }
+    # Ora guarda se c'e' un filtro sulla classe MASTER
+    # browser()
     
     # Esegui la query
     # q <- str_c("select ",master.table,".",master.pk," as res from ",master.table," " where ",master.table,".",nome.campo.ordinamento," = ",slave.table,".",slave.link," and ",master.table,".",master.pk," = '",id,"'"," ",order.by," ;")
@@ -327,6 +362,9 @@ cat("\n****",script)
       order.by <- str_c("order by ",nome.campo.ordinamento," desc")
     }
 # browser()
+    # guarda se trovi un filtro sulla classe MASTER
+    # browser()
+    
     # Esegui la query
     q <- str_c("select ",slave.table,".",slave.pk," as res from ",master.table,", ",slave.table," where ",master.table,".",master.link," = ",slave.table,".",slave.link," and ",master.table,".",master.pk," = '",id,"'"," ",order.by," ;")
     tmp.res <- mem.struct$SQLDB[[ link.name ]]$obj.connector$query(query = q)
@@ -361,6 +399,7 @@ cat("\n****",script)
   # ----------------------------------------------------------------
   return(
     list(
+          "loadScript" =loadScript,
           "parseScript"=parseScript,
           "get"=get,
           "getEntityAttribute"=getEntityAttribute,

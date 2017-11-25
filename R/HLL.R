@@ -8,15 +8,21 @@ HLL <- function() {
   LLL.env <- NA
   mem.struct <- list()
   global.null.value <- ""
-
+  
+  # ---------------------------------------------------------------
+  # Fai il PARSE di uno script
+  # (Fai anche il Parsing SEMANTICO)
+  # ---------------------------------------------------------------  
   parseScript<-function( script ) {
     cat("\n =====================================")
     # splitta le righe ed elimina le righe vuote
     arr.righe <- str_trim(unlist(str_split(string = script,pattern = "\n")))
 
+    # -im k3
     # Fai il pre-processing per identificare strutture quali cicli, if-then-else, etc..
     # e butta tutto nella memoria di elaborazione    
-    mem.struct$script.structures <<- preProcessing.Script( script.lines = arr.righe )
+    # mem.struct$script.structures <<- preProcessing.Script( script.lines = arr.righe )
+    # -fm k3
     
     script.terminato <- FALSE
     indice.riga <- 1
@@ -54,10 +60,15 @@ HLL <- function() {
         }
       }
       
+      # if(res$operation.token=="ENDFOREACH") browser()
+      # if(res$operation.token=="FOREACH") browser()
+          
       if(res$operation.token=="IF") { jump.statement <-TRUE ; }
       if(res$operation.token=="ENDIF") { jump.statement <-TRUE ; }
       if(res$operation.token=="ELSE") { jump.statement <-TRUE ;  }
-      
+      # if(res$operation.token=="FOREACH") { jump.statement <-TRUE ;  }
+      if(res$operation.token=="ENDFOREACH") { jump.statement <-TRUE ;  }
+
       # if( jump.statement == TRUE )  browser()
       # Se l'istruzione eseguita era una istruzione che prevedeva un salto, comportati di conseguenza
       # (non aggiornare il cursore in avanti di uno, ma fai il jump previsto)
@@ -80,7 +91,9 @@ HLL <- function() {
     # Fai il parse dello script
     # Esegue il corrispettivo di una sola riga
     # res <- obj.HLL$parseScript( script = HLL.script )
+    # cat("\n ===> REC: ",HLL.script)
     res <- obj.HLL$execute( script = HLL.script )
+    # cat("\n <=== REC")
     # browser()
     # browser()
     # restituisci il risultato
@@ -103,12 +116,17 @@ HLL <- function() {
     # Crea un oggetto HLL
     obj.HLL<-HLL()
     # prendi lo script da mandare (togli 'define' ed 'enddefine')
-    HLL.script <- mem.struct$class.methods[[classe]][[metodo]]
+    # -im k2
+    # HLL.script <- mem.struct$class.methods[[classe]][[metodo]]
+    HLL.script <- mem.struct$class.methods[[classe]][[metodo]]$script
+    # -fm k2
     HLL.script <- HLL.script[ 2: (length(HLL.script)-1) ]
     HLL.script <- paste(HLL.script, collapse = "\n")
 
     # Aggiungi la PK implicita (eventualmente sovrascrivendo)
     tmp.mem.struct$implicit.PK<-implicit.PK
+    tmp.mem.struct$running.class<-classe
+    tmp.mem.struct$running.method<-metodo
 
     # Fai il push dell'ENV
     obj.HLL$setEnv( env = LLL.env , mem = tmp.mem.struct )
@@ -117,6 +135,21 @@ HLL <- function() {
     # restituisci il risultato
     return(res)
   }
+  # ---------------------------------------------------------------
+  # Fai il LAOD di uno script
+  # ---------------------------------------------------------------  
+  loadScript <- function(filename = NA, script = NA){
+    if(!is.na(filename)) {  
+      text <- paste(readLines(con = filename,warn = F),collapse = "\n")
+      parseScript(script = text )
+      return()
+    }      
+    if(!is.na(script)) { 
+      parseScript(script = text)
+      return()
+    }
+    stop("qualcosa devi passare...")
+  }    
   # ---------------------------------------------------------------
   # proxy.mem.struct.set
   # proxy per il SET delle variabili in memoria
@@ -133,7 +166,17 @@ HLL <- function() {
   # ---------------------------------------------------------------
   proxy.mem.contesto.set<-function( method.name=NA, class.name=NA , destroy.contest = FALSE) {
     # Se devi distruggere il contesto, non perdere tempo!
+    # browser()
     if(destroy.contest==TRUE ) {
+      # -im k3
+      # prima di chiudere il contesto, fai il parsing di quanto fino ad ora accumulato.
+      # Considera che lo script e' gia' stato aggiundo dagli "addline"
+      # browser()
+      method.name <- mem.struct$define.context$method.name
+      class.name <- mem.struct$define.context$class.name
+      mem.struct$class.methods[[class.name]][[method.name]]$struttura <<- preProcessing.Script( script.lines = mem.struct$define.context$script )
+      # -fm -3   
+      # browser()
       mem.struct$define.context <<- list()
       return()
     }
@@ -145,7 +188,10 @@ HLL <- function() {
     # browser()
     if(!("class.methods" %in% names(mem.struct))) mem.struct$class.methods<<-list()
     if(! ( class.name %in% names(mem.struct$class.methods) ) ) mem.struct$class.methods[[class.name]]<<-list()
-    if(!(method.name %in% names(mem.struct$class.methods[[class.name]]))) mem.struct$class.methods[[class.name]][[method.name]]<<-c()
+    # -im k2
+    # if(!(method.name %in% names(mem.struct$class.methods[[class.name]]))) mem.struct$class.methods[[class.name]][[method.name]]<<-c()
+    if(!(method.name %in% names(mem.struct$class.methods[[class.name]]))) mem.struct$class.methods[[class.name]][[method.name]]<<-list("script"=c(),"struttura"=c())
+    # -fm k2
   }
   # ---------------------------------------------------------------
   # proxy.mem.contesto.addLine
@@ -159,14 +205,17 @@ HLL <- function() {
     # if(class.name=="Evento") browser()
     method.name <- mem.struct$define.context$method.name
     # cat("\n ***: ",method.name)
-    mem.struct$class.methods[[class.name]][[method.name]] <<- c(mem.struct$class.methods[[class.name]][[method.name]],stringa)
+    # -im k2
+    # mem.struct$class.methods[[class.name]][[method.name]] <<- c(mem.struct$class.methods[[class.name]][[method.name]],stringa)
+    mem.struct$class.methods[[class.name]][[method.name]]$script <<- c(mem.struct$class.methods[[class.name]][[method.name]]$script,stringa)
+    # -fm k2
   }
   # ---------------------------------------------------------------
   # execute
   # Esegui un singolo comando (o una linea: per quanto possibile
   # risolveraa' ricorsivamente le chiamate)
   # ---------------------------------------------------------------
-  execute <-  function( script , complete.script = NA , script.cursor = NA) {
+  execute<-  function( script , complete.script = NA , script.cursor = NA) {
     # browser()
 # if( is.na((script.cursor))) browser()
     if(!is.na(script.cursor)) cat("\nS :",script.cursor,":",script)
@@ -183,7 +232,9 @@ HLL <- function() {
     res["if"]<- str_extract(string = stringa, pattern = "^[ ]*if[ ]*\\(.*\\)[ ]*then[ ]*$")
     res["else"]<- str_extract(string = stringa, pattern = "^[ ]*else[ ]*$")
     res["endif"]<- str_extract(string = stringa, pattern = "^[ ]*endif[ ]*$")
-
+    res["foreach"]<- str_extract(string = stringa, pattern = "^[ ]*foreach[ ]*([a-zA-Z]+[a-zA-Z0-9_]*)[ ]+as[ ]+([a-zA-Z]+[a-zA-Z0-9_]*)[ ]*do[ ]*$")
+    res["endforeach"]<- str_extract(string = stringa, pattern = "^[ ]*endforeach[ ]*$")
+    
     #  SET
     if(!is.na(res["set"])) {
       # if(stringa=="set fi_long_dx = EcoTiroide(idEcoTiroide).dxFiLongitudinale") browser()
@@ -196,6 +247,8 @@ HLL <- function() {
       # if(stringa == "Paziente().id") browser()
       # browser()
       toReturn <- risolvi.accessoAMetodo( stringa, res )
+      # if(is.null(toReturn$valore)) browser()
+      if(is.null(toReturn$valore)) toReturn$valore <- global.null.value
       # browser()
       return(toReturn)      
     }
@@ -228,11 +281,21 @@ HLL <- function() {
       toReturn <- risolvi.else( stringa, complete.script = complete.script , script.cursor = script.cursor)
       return(toReturn)  
     }      
-    #  ELSE
+    #  ENDIF
     if(!is.na(res["endif"])) {
       toReturn <- risolvi.endif( stringa, complete.script = complete.script , script.cursor = script.cursor)
       return(toReturn)  
     }        
+    #  FOREACH
+    if(!is.na(res["foreach"])) {
+      toReturn <- risolvi.foreach( stringa, complete.script = complete.script , script.cursor = script.cursor)
+      return(toReturn)  
+    }       
+    #  ENDFOREACH
+    if(!is.na(res["endforeach"])) {
+      toReturn <- risolvi.endforeach( stringa, complete.script = complete.script , script.cursor = script.cursor)
+      return(toReturn)  
+    }       
 
     # =========================================
     # SYNTAX ERROR!
@@ -248,10 +311,150 @@ HLL <- function() {
   # ********************************************************************
   
   # ----------------------------------------------------
+  # ENDFOREACH
+  # ----------------------------------------------------   
+  risolvi.endforeach<-function( stringa , complete.script , script.cursor  ) {
+    runningClass <- mem.struct$running.class
+    runningMethod <- mem.struct$running.method
+    matrice <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$foreach$matrice
+    riga.di.interesse <- matrice[ which(matrice[,"riga"]==as.character(script.cursor)), ]
+    
+    cursore <- riga.di.interesse["cursore"]
+    arr2run <- riga.di.interesse["array"] 
+
+    # incrementa il CURSOR.INDEX
+    mem.struct$active.loops[[as.character(script.cursor)]]$cursorIndexPos <<- mem.struct$active.loops[[as.character(script.cursor)]]$cursorIndexPos +1 
+
+    # e zompa
+    return( 
+      list( "valore" = NA,
+            "operation.token" = "ENDFOREACH",
+            "operation" = stringa,
+            "setScriptCursorTo" = as.numeric(riga.di.interesse["linkedTo"] )
+      )
+    )      
+    
+  }  
+  # ----------------------------------------------------
+  # FOREACH
+  # ----------------------------------------------------   
+  risolvi.foreach<-function( stringa , complete.script , script.cursor  ) {
+
+    # if(!is.null(mem.struct$active.loops)) { 
+    #   if(length(mem.struct$active.loops) > 0) { 
+    #     if(mem.struct$active.loops[[as.character(script.cursor)]]$cursorIndexPos==33) browser()
+    #   }
+    # }
+    
+    runningClass <- mem.struct$running.class
+    runningMethod <- mem.struct$running.method
+    matrice <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$foreach$matrice
+    riga.di.interesse <- matrice[ which(matrice[,"riga"]==as.character(script.cursor)), ]
+
+    cursore <- riga.di.interesse["cursore"]
+    arr2run <- riga.di.interesse["array"] 
+    endForEachLine <- riga.di.interesse["linkedTo"] 
+    
+    # browser()
+    
+    # Prima cerca di capire se c'e' un CONTEXT aperto per questo FOREACH
+    # se no, crealo (sempre che la condizione abbia senso)
+    if(!(as.character(script.cursor) %in% names(mem.struct$active.loops))) {
+      mem.struct$active.loops[[as.character(script.cursor)]] <<- list("active"=TRUE,
+                                                                   "cursorIndexPos"=0,
+                                                                   "cursorName"=cursore)
+    }
+    # idem, nel caso in cui fosse stato chiuso precedentemente
+    if(mem.struct$active.loops[[as.character(script.cursor)]]$active==FALSE) {
+      mem.struct$active.loops[[as.character(script.cursor)]] <<- list("active"=TRUE,
+                                                                   "cursorIndexPos"=0,
+                                                                   "cursorName"=cursore)
+    }
+
+    # Prendi i dati dell'array (in prima battuta vedi solo se esiste nelle variabili in memoria)
+    if( !(arr2run %in% names(mem.struct$var))) {
+      stop("\n ERRORE, l'array per il FOREACH non e' presente fra le variabili dichiarate")
+    }
+    # Spiana il cursore, anche se gia' esiste nello spazion delle variabili: RUSPA!
+    # (intanto mettici dentro la cosa piu' simile al 'NULL' che conosca)
+    mem.struct$var[[cursore]] <<- list( "type" = "NULL", "value" = global.null.value )
+    
+    # Verifica la condizione per capire che fare
+    # L'array ha almeno un elemento? E' diverso dal global.null.value?
+    if(mem.struct$var[[arr2run]]$type=="NULL") {
+      # devo zompare al ENDOFOREACH: chiudi il loop (settalo come non attivo)
+      mem.struct$active.loops[[as.character(script.cursor)]] <<- list("active"=FALSE)
+      # e zompa
+      return( 
+        list( "valore" = NA,
+              "operation.token" = "ENDFOREACH",
+              "operation" = stringa,
+              "setScriptCursorTo" = as.numeric(endForEachLine)+1
+        )
+      )    
+    }
+    # Verifica la condizione per capire che fare
+    # L'array ha almeno un elemento? E' diverso dal global.null.value?    
+    if( length(mem.struct$var[[arr2run]]$value)<=1 ) { 
+      if(mem.struct$var[[arr2run]]$value==global.null.value | 
+         length(mem.struct$var[[arr2run]]$value)==0) {
+        # devo zompare al ENDOFOREACH: chiudi il loop (settalo come non attivo)
+        mem.struct$active.loops[[as.character(script.cursor)]] <<- list("active"=FALSE)
+        # e zompa
+        return( 
+          list( "valore" = NA,
+                "operation.token" = "ENDFOREACH",
+                "operation" = stringa,
+                "setScriptCursorTo" = as.numeric(endForEachLine)+1
+          )
+        )    
+      }
+    }
+    # Ora verifica se il cursor.index e' gia' arrivato in fondo
+    if(mem.struct$active.loops[[as.character(script.cursor)]]$cursorIndexPos >= length(mem.struct$var[[arr2run]]$value)) {
+      # devo zompare al ENDOFOREACH: chiudi il loop (settalo come non attivo)
+      mem.struct$active.loops[[as.character(script.cursor)]] <<- list("active"=FALSE)
+      # e zompa
+      return( 
+        list( "valore" = NA,
+              "operation.token" = "ENDFOREACH",
+              "operation" = stringa,
+              "setScriptCursorTo" = as.numeric(endForEachLine)+1
+        )
+      )    
+    }
+    # Ok, se sono qui significa che sono in ballo: 
+    # aggiorna il CURSOR.INDEX
+    mem.struct$active.loops[[as.character(script.cursor)]]$cursorIndexPos <<- mem.struct$active.loops[[as.character(script.cursor)]]$cursorIndexPos + 1
+    # setta il valore del CURSOR
+    mem.struct$var[[cursore]]$value <<- mem.struct$var[[arr2run]]$value[ mem.struct$active.loops[[as.character(script.cursor)]]$cursorIndexPos ]
+    # Ora prova ad indovinare il tipo di sto' cazzo di cursore
+    if( is.na(mem.struct$var[[cursore]]$value ))  { stop("\n ERRORE... vorrei proprio capire come fa ad arrivare NA il cursore, a questo punto...") }
+    mem.struct$var[[cursore]]$type <<- definisci.tipo.variabile( mem.struct$var[[cursore]]$value )$tipo.variabile.restituita
+    # <<-list( "type" = "NULL", "value" = global.null.value )
+    
+    # if(mem.struct$active.loops[[as.character(script.cursor)]]$cursorIndexPos==33) browser()
+    
+     # cat("\n ******************************* \n", mem.struct$var[[cursore]]$value,"\n ******************************* ")
+    return( 
+      list( "valore" = NA,
+            "operation.token" = "FOREACH",
+            "operation" = stringa
+      )
+    )  
+  }
+  # ----------------------------------------------------
   # ENDIF
   # ----------------------------------------------------   
   risolvi.endif<-function( stringa , complete.script , script.cursor  ) {
-    arr.endif <- unlist(lapply(mem.struct$script.structures$if.else.endif, function(x){ x$riga.endif } ))
+    
+    runningClass <- mem.struct$running.class
+    runningMethod <- mem.struct$running.method
+    
+    # -im k3
+    # arr.endif <- unlist(lapply(mem.struct$script.structures$if.else.endif, function(x){ x$riga.endif } ))
+    arr.endif <- unlist(lapply(mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif, function(x){ x$riga.endif } ))
+    # -fm k3
     quale_posizione <- which( arr.endif == script.cursor,arr.ind = T)
     if(length(quale_posizione)==0) stop("ERRORE: non riesco a trovare la posizione cui e' associato l'ENDIF")
     
@@ -271,13 +474,23 @@ HLL <- function() {
   # ----------------------------------------------------   
   risolvi.else<-function( stringa , complete.script , script.cursor  ) {
     
-    arr.else <- unlist(lapply(mem.struct$script.structures$if.else.endif, function(x){ x$riga.else } ))
+    runningClass <- mem.struct$running.class
+    runningMethod <- mem.struct$running.method
+    
+    # -im k3
+    # arr.else <- unlist(lapply(mem.struct$script.structures$if.else.endif, function(x){ x$riga.else } ))
+    arr.else <- unlist(lapply(mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif, function(x){ x$riga.else } ))
+    # -fm k3
+    
     quale_posizione <- which( arr.else == script.cursor,arr.ind = T)
     if(length(quale_posizione)==0) stop("ERRORE: non riesco a trovare la posizione cui e' associato l'ELSE")
 
     # Se sto leggendo un ELSE e' perche' ero nella condizione ed ora devo saltare all'endif
     # quindi prendi l'endif associato e zompa!
-    new.script.cursor <- mem.struct$script.structures$if.else.endif[[quale_posizione]]$riga.endif
+    # -im k3
+    # new.script.cursor <- mem.struct$script.structures$if.else.endif[[quale_posizione]]$riga.endif
+    new.script.cursor <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif
+    # -fm k3
     
     return( 
       list( "valore" = NA,
@@ -287,20 +500,33 @@ HLL <- function() {
       )
     )     
   }
+
   # ----------------------------------------------------
   # IF
   # ----------------------------------------------------  
   risolvi.if<-function( stringa , complete.script , script.cursor ) {
 
+    runningClass <- mem.struct$running.class
+    runningMethod <- mem.struct$running.method
+    
     # Bene! Dato che sono stato figo ed ho costruito in pre-processing degli 
     # script la struttura degli if, facciamo che ora vado a ripigliarla!
     # (prima vediamo che ci sia, senno': ERROR! )
-    if( !(as.character(script.cursor) %in% names(mem.struct$script.structures$if.else.endif)) ){
+    # -im k3
+    # if( !(as.character(script.cursor) %in% names(mem.struct$script.structures$if.else.endif)) ){
+    if( (as.character(script.cursor) %in%  
+          names(mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif))==FALSE) {
+    # if( get.related.struct.if.endif(script.cursor = script.cursor, ifExist = TRUE)==FALSE ) {
       stop("Errore! mi sarei aspettato di trovar parlato di questo if, dal pre-processor dello script!")
     }
+    # -fm k3
     
     # prendi i nomi delle sospette variabili da sostituire
-    sospette.variabili <- mem.struct$script.structures$if.else.endif[[as.character(script.cursor)]]$toResolve
+    # -im k3
+    # sospette.variabili <- mem.struct$script.structures$if.else.endif[[as.character(script.cursor)]]$toResolve
+    sospette.variabili <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif[[as.character(script.cursor)]]$toResolve
+    # -fm k3
+    # browser()
     valore.trovato<-list(); tipo.variabile <- list()
     for( variabile in sospette.variabili ) {
       if(!(variabile %in% names(mem.struct$var)))  {
@@ -313,7 +539,11 @@ HLL <- function() {
     
     # ora scorri l'array delle posizioni da ricostruire, dove abbiamo indicato con il nome
     # "token" le posizioni in cui e' stata trovata (stimata) una variabile di cui sostituire il valore
-    arrayCondizioneDaRicostruire <- mem.struct$script.structures$if.else.endif[[as.character(script.cursor)]]$arrayCondizioneDaRicostruire
+    # -im k3
+    # arrayCondizioneDaRicostruire <- mem.struct$script.structures$if.else.endif[[as.character(script.cursor)]]$arrayCondizioneDaRicostruire
+    arrayCondizioneDaRicostruire <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif[[as.character(script.cursor)]]$arrayCondizioneDaRicostruire
+    # -fm k3
+    # browser()
     condizione.finale.da.parsare<-c()
     if(length(arrayCondizioneDaRicostruire)>0) { 
       for( i in 1:length(arrayCondizioneDaRicostruire)) { 
@@ -339,8 +569,12 @@ HLL <- function() {
     esito.condizione <- eval(parse(text=condizione.finale.da.parsare))
     # browser()
     # Ora cerca di capire dove il cursore di eseuczione dello script dovrebbe venire mosso!
-    riga.else <- mem.struct$script.structures$if.else.endif[[as.character(script.cursor)]]$riga.else
-    riga.endif <- mem.struct$script.structures$if.else.endif[[as.character(script.cursor)]]$riga.endif
+    # -imf k3
+    # riga.else <- mem.struct$script.structures$if.else.endif[[as.character(script.cursor)]]$riga.else
+    # riga.endif <- mem.struct$script.structures$if.else.endif[[as.character(script.cursor)]]$riga.endif
+    riga.else <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif[[as.character(script.cursor)]]$riga.else
+    riga.endif <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif[[as.character(script.cursor)]]$riga.endif
+    # -fm k3
     
     if(esito.condizione==TRUE) nuova.posizione.cursore <- script.cursor + 1
     if(esito.condizione==FALSE) { 
@@ -436,7 +670,7 @@ HLL <- function() {
     if(!is.na(res["obj.implicit.PK"])) {
       nome.oggetto <- str_trim(sub("\\.[a-zA-Z]+[a-zA-Z0-9_]*[ ]*$" ,"\\1", stringa ))
       attributo <- str_trim(sub("^[ ]*[a-zA-Z]+[a-zA-Z0-9_]*\\." ,"\\1", stringa ))
-    
+      
       # Cerca di capire SE e' una relazione e, se no, dai errore in caso in cui manchi la PK'
       # (nel caso di relazione sul solo master, cio' e' ammissibile)
       RelazioneDiTipo <- LLL.env$is.relation.of( nome.oggetto , attributo , whatInfo="type" )
@@ -462,7 +696,10 @@ HLL <- function() {
         if( mem.struct[["var"]][[obj.pk]]$type=="numeric"  ) {
           obj.pk <- mem.struct[["var"]][[obj.pk]]$value
         }
-        else { stop("ERRORE: l'id non puo' essere usato come chiave in quanto non numerico") }
+        else { 
+          browser()
+          stop("ERRORE: l'id non puo' essere usato come chiave in quanto non numerico") 
+        }
       }
       else  {
         stop("-TODO: invoca ricorsivamente il calcolo dell' PK dell'oggetto")
@@ -508,6 +745,10 @@ HLL <- function() {
   # ----------------------------------------------------
   risolvi.set<-function( stringa , script.cursor = NA ) {
     
+    runningClass <- mem.struct$running.class
+    runningMethod <- mem.struct$running.method
+    
+    # browser()
     nome.variabile <- str_extract(string = sub("^[ ]*set[ ]*", "\\1", stringa),pattern = "[A-Za-z0-9._]*")
     secondo.membro <- sub("^[ ]*set[ ]+[A-Za-z0-9._]+[ ]*=[ ]*","\\1",stringa)
     
@@ -551,9 +792,18 @@ HLL <- function() {
     
     argomento.multi.token <- FALSE
     if(!is.na(script.cursor)) { 
-      if( mem.struct$script.structures$set.statement[[as.character(script.cursor)]]$exitCode == 0 ) {
+      # browser()
+      # mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif
+      # -im k3
+      # if( mem.struct$script.structures$set.statement[[as.character(script.cursor)]]$exitCode == 0 ) {
+      # if( mem.struct$script.structures$set.statement[[as.character(script.cursor)]]$exitCode == 0 ) {
+      if( mem.struct$class.methods[[mem.struct$running.class]][[mem.struct$running.method]]$struttura$set.statement[[as.character(script.cursor)]]$exitCode == 0 ) {
+      # -fm k3
         argomento.multi.token <- TRUE
-        mmatrice <- mem.struct$script.structures$set.statement[[as.character(script.cursor)]]$matriceElementiRilevati
+        # -im k3
+        # mmatrice <- mem.struct$script.structures$set.statement[[as.character(script.cursor)]]$matriceElementiRilevati
+        mmatrice <- mem.struct$class.methods[[mem.struct$running.class]][[mem.struct$running.method]]$struttura$set.statement[[as.character(script.cursor)]]$matriceElementiRilevati
+        # -fm k3
         # risolvi ogni elemento della matrice (escludendo il primo)
         stringa.parziale <- "";
         for(ct in 1:(dim(mmatrice)[1]))    {
@@ -690,16 +940,34 @@ HLL <- function() {
   preProcessing.Script<-function( script.lines ) {
     command <- list()
     
+    # accorcia script.lines togliendo la prima riga che e' solo 
+    # relativa alla definizione della procedura
+    script.lines <- script.lines[2:length(script.lines)] 
+    
     # Scorri tutte le righe alla ricerca degli elementi che possono interessare
     # (IF, FOR, etc..)
-    matrice <- c(); matrice.set <- c()
-    lst.tmp.ris<-list(); lst.set.stt <- list()
+    matrice <- c(); matrice.set <- c(); matrice.foreach <- c()
+    lst.tmp.ris<-list(); lst.set.stt <- list(); lst.tmp.foreach <- list()
     
     for(riga in 1:length(script.lines)) {
       command["if"]<- str_extract(string = script.lines[riga] , pattern = "^[ ]*if[ ]*\\(.*\\)[ ]*then[ ]*$")
       command["endif"]<- str_extract(string = script.lines[riga] , pattern = "^[ ]*endif[ ]*$")
       command["else"]<- str_extract(string = script.lines[riga] , pattern = "^[ ]*else[ ]*$")
       command["set"]<- str_extract(string = script.lines[riga], pattern = "^[ ]*set[ ]+[A-Za-z0-9._]+[ ]*=")
+      command["foreach"]<- str_extract(string = script.lines[riga], pattern = "^[ ]*foreach[ ]*([a-zA-Z]+[a-zA-Z0-9_]*)[ ]+as[ ]+([a-zA-Z]+[a-zA-Z0-9_]*)[ ]*do[ ]*$")
+      command["endforeach"]<- str_extract(string = script.lines[riga], pattern = "^[ ]*endforeach[ ]*$")
+      
+      # E' un FOREACH?
+      if(!is.na(command["foreach"])) {
+        # Fai il preprocessing della riga di IF, per estrarre su quali variabili lavora
+        matrice.foreach <- rbind(matrice.foreach, pre.processing.foreach( script = script.lines, num.riga = riga))
+        colnames(matrice.foreach)<-c("riga","tipo","cursore","array","linkedTo","associato")
+      }  
+      # E' un ENDFOREACH?
+      if(!is.na(command["endforeach"])) {
+        # Fai il preprocessing della riga di IF, per estrarre su quali variabili lavora
+        matrice.foreach <- rbind(matrice.foreach,c(riga,"endforeach","","","",""))
+      }      
       # E' un IF?
       if(!is.na(command["if"])) {
         # Fai il preprocessing della riga di IF, per estrarre su quali variabili lavora
@@ -710,7 +978,7 @@ HLL <- function() {
       if(!is.na(command["endif"])) {
         matrice <- rbind(matrice, c(riga, "endif",FALSE))
       } 
-      # E' un endif?
+      # E' un else?
       if(!is.na(command["else"])) {
         matrice <- rbind(matrice, c(riga, "else",FALSE))
       }        
@@ -740,20 +1008,54 @@ HLL <- function() {
         
       }           
     }
-    # browser()
+
     # Ora ricava la struttura degli if-then-else in tutto lo script, arricchendo la lista
     # costruita fino ad ora. (cosi' mi sara' piu' facile, a run-time, zompare qua e la' perche'
     # gia' conoscero' la struttura)
     lst.tmp.ris <- ricava.struttura.if( matrice = matrice, lst.tmp.ris = lst.tmp.ris )
+    # browser()
+    if(!is.null(matrice.foreach))
+      matrice.foreach <- completa.matrice.foreach( matrice = matrice.foreach )
     # lst.set.stt <- list( "matrice.set"=matrice.set)
   
     return( 
       list( "if.else.endif"= lst.tmp.ris,
-            "set.statement" = lst.set.stt)
+            "set.statement" = lst.set.stt,
+            "foreach" = list("matrice"=matrice.foreach) )
     )
     
   }
-
+  # ----------------------------------------------------------
+  # completa.matrice.foreach
+  #     Completa la matrice dei foreach associando i numeri fra i
+  #     foreach e gli endforeach, cosi' da consentire in fase di calcolo di non
+  #     stare a doverli cercare
+  # ----------------------------------------------------------
+  completa.matrice.foreach<-function( matrice  ) {
+    # Fallo di default per un numero di volte pari al numero dei foreach 
+    # (caso in cui siano tutti nidificati ). Se anche lo fa qualche volta di piu'
+    # non succede niente
+    for( i in 1:sum(matrice[,"tipo"]=="endforeach") ) { 
+      # scorri tutta la matrice, a scendere
+      for( numRiga in 1:nrow(matrice))  {  
+        # se trovi delle coppie adiacenti, non ancora linkate, linkale
+        if(matrice[numRiga,"tipo"]=="endforeach" & matrice[numRiga,"linkedTo"]=="")  {
+          dove.possibile <- which(matrice[,"tipo"]=="foreach" & matrice[,"linkedTo"]=="" 
+                                  & as.numeric(matrice[numRiga,"riga"])> as.numeric(matrice[,"riga"]) )
+          candidato <- sort(dove.possibile,decreasing = T)[1]
+          if( length(candidato)>0 )  {
+            # ovviamente il link e' reciproco
+            matrice[numRiga,"linkedTo"] <- matrice[candidato,"riga"]
+            matrice[candidato,"linkedTo"] <- matrice[numRiga,"riga"]
+          }
+        }
+      }
+    }
+    # se ancora ho qualcosa di non linkato, errore!
+    aaa <- which(matrice[,"linkedTo"]=="" )
+    if(length(aaa)>0) stop("\nmaremma, no.... l'architetture dei foreach/endforeach non e' corretta: verifica!")
+    return(matrice)
+  }
   ricava.struttura.if<-function( matrice , lst.tmp.ris ) {
     # Se ci sono degli IF, ricava le posizioni dei corrispondenti ELSE, ENDIF, cosi' da rendere
     # piu' facile il calcolo successivamente
@@ -800,6 +1102,21 @@ HLL <- function() {
     
     return( "lst.tmp.ris"=lst.tmp.ris)
   }
+  pre.processing.foreach<-function( script , num.riga, complete.script  ) {
+    stringa <- script[num.riga]
+    # browser()
+    # prima di tutto estrai il nome del cursore e dell'array su cui si scorre
+    pos.1 <- str_locate( string = stringa,pattern = "^[ ]*foreach[ ]*")
+    array.run <- str_sub(string = stringa,start = pos.1[,"end"]+1)
+    pos.2 <-str_locate(string = array.run, pattern = "[ ]+as[ ]+([a-zA-Z]+[a-zA-Z0-9_]*)[ ]*do[ ]*$")
+    array.run <- str_trim(str_sub(string = array.run,start = 1, end = pos.2[,"start"]-1))
+    pos.3 <- str_locate(string = stringa, pattern = "^[ ]*foreach[ ]*([a-zA-Z]+[a-zA-Z0-9_]*)[ ]+as[ ]+")
+    pos.4 <- str_locate(string = stringa, pattern = "[ ]*do[ ]*$")
+    cursore <- str_trim(str_sub(string = stringa, start = pos.3[ ,"end"]+1, end = pos.4[ ,"start"]-1))
+
+    return(c(num.riga,"foreach",cursore,array.run,"",""))
+  }
+  
   pre.processing.if<-function(  script , num.riga , argomento.gia.estratto = NA) {
     
     if(is.na(argomento.gia.estratto)) { 
@@ -941,6 +1258,7 @@ HLL <- function() {
     mem.struct$define.context<<-list()
     mem.struct$implicit.PK<<-NA
     mem.struct$script.structures <<-list()
+    mem.struct$active.loops <<-list()
     global.null.value<<-"null"
   }
   costructor()
@@ -949,6 +1267,7 @@ HLL <- function() {
   # ----------------------------------------------------------------
   return(
     list(
+      "loadScript"=loadScript,
       "parseScript"=parseScript,
       "setEnv"=setEnv,
       "get"=get,
