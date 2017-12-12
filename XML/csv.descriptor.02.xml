@@ -8,8 +8,9 @@
     <column>id</column>
     <column>nome</column>
     <column>cognome</column>
-    
-    
+    <column>getLastEvent</column>
+    <column>isPDV(365)</column>
+
     <section class='Evento' method='hasClinicalEvents'>
       <column>dataEvento</column>
       <column>descrizione</column>
