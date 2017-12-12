@@ -19,8 +19,7 @@ define dimensioneTiroide as method of Evento
       set fi_antpos_dx = EcoTiroide(idEcoTiroide).dxFiAnteroposteriore
       set fi_antpos_sx = EcoTiroide(idEcoTiroide).sxFiAnteroposteriore
       set fi_trasv_dx = EcoTiroide(idEcoTiroide).dxFiTrasverso
-      set fi_trasv_sx = EcoTiroide(idEcoTiroide).sxFiTrasverso      
-      
+      set fi_trasv_sx = EcoTiroide(idEcoTiroide).sxFiTrasverso
 
       if( fi_long_dx!='' & fi_long_sx!='' & fi_antpos_dx!='' & fi_antpos_sx!='' & fi_trasv_dx!='' & fi_trasv_sx!='')  then
         set dim_dx = ( fi_long_dx * fi_antpos_dx * fi_trasv_dx *437/1000  )
@@ -45,4 +44,39 @@ define getLastEvent as method of Paziente
   return(data)
 enddefine
 
+define isPDV_547 as method of Paziente
 
+  set ultimaData = Paziente.getLastEvent
+  set dataOdierna = Tools.today
+  
+  set PDVFromDays = Tools.getDeltaDays( dataOdierna , ultimaData )
+  set PDVFromDays = Tools.getDeltaDays( ultimaData , dataOdierna )
+  
+  if( PDVFromDays > 547 ) then
+    set stato_paziente = 'PDV'
+  else
+    set stato_paziente = ''
+  endif
+  
+  return( stato_paziente )
+
+enddefine
+
+define isPDV as method of Paziente
+
+  set threshold = $parameter_1$
+
+  set ultimaData = Paziente.getLastEvent
+  set dataOdierna = Tools.today
+  
+  set PDVFromDays = Tools.getDeltaDays( dataOdierna , ultimaData )
+  
+  if( PDVFromDays > threshold ) then
+    set stato_paziente = 'PDV'
+  else
+    set stato_paziente = ''
+  endif
+  
+  return( stato_paziente )
+
+enddefine

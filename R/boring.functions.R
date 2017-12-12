@@ -1,7 +1,10 @@
 
 
 ricavaElementiDaRisolvereDaStringa<-function( stringa ) { 
-  
+  # cat("\n ===> ",stringa)
+  debug.var <- FALSE
+  # if(stringa =="Tools.getDeltaDays( ultimaData, dataOdierna )") debug.var <- TRUE
+    
   lst.Transizioni <- list()
   lst.Transizioni[["ready"]]<-c( "int"="int", "char"="token",   "sep"="ready", "quote"="quotedString"   )
   lst.Transizioni[["int"]]  <-c( "int"="int", "char"="ERROR", "sep"="ready", "quote"="ERROR"   )
@@ -27,6 +30,9 @@ ricavaElementiDaRisolvereDaStringa<-function( stringa ) {
     # Non e' bello un apply cosi', ma fa risparmiare tempo: perdoname por mi vida loca.... 
     tipo.Simbolo <- unlist(lapply( names(lst.tipoSimbolo), function(x) {  if(simbolo %in% lst.tipoSimbolo[[x]] ) return(x)  }  ))
     
+    # if(debug.var==TRUE) browser()
+    # if(debug.var==TRUE) cat("\n simbolo=",simbolo, " tipo.simbolo=",tipo.Simbolo)
+    
     # prendi il prossimo stato previsto
     prossimo.stato <- lst.Transizioni[[stato.attuale]][ which( names(lst.Transizioni[[stato.attuale]])==tipo.Simbolo )]
     
@@ -44,6 +50,7 @@ ricavaElementiDaRisolvereDaStringa<-function( stringa ) {
       log.posizione.inizio.stato <- i
     }
   }
+  # if(debug.var==TRUE) browser()
   # Aggiorna la matrice delle transizioni rilevate (l'ultima non e' stata 
   # detectata dal for perche' e' uscito prima)
   matrice.log.transizioni <- rbind( matrice.log.transizioni, c( stato.attuale, log.posizione.inizio.stato ,i,str_sub(stringa,log.posizione.inizio.stato,i)  ) )
