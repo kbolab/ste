@@ -1,14 +1,14 @@
 #' a DB connector class
 #'
 #' @description  A class to connect with RDBMS
-#' @import RMySQL
+#' @import RMySQL RPostgreSQL
 #' @param RDBMS.type the RDBMS type. By default 'mysql', at the moment (the only supported)
 #' @param user the user for the RDBMS connection
 #' @param password the password for the RDBMS connection
 #' @param host the host for the RDBMS connection
 #' @param dbname the dataBase name for the RDBMS connection
 #' @export
-RDBMS <- function( RDBMS.type = "mysql", user="root", password="", host="127.0.0.1", dbname ) {
+RDBMS <- function( RDBMS.type , user="root", password="", host="127.0.0.1", dbname ) {
   param.RDBMS.type<-""
   param.user<-""
   param.password<-""
@@ -17,16 +17,30 @@ RDBMS <- function( RDBMS.type = "mysql", user="root", password="", host="127.0.0
   # db.connection<-''
 
   query <- function( query ) {
-    # cat("\n *-")
-    db.connection <- dbConnect(MySQL(), user=param.user, password=param.password, dbname=dbname, host=param.host)
-    # cat("-*")
+    if( param.RDBMS.type == "mysql") return( mysql.query(query) )
+    if( param.RDBMS.type == "postgres") return( postgres.query(query) )
+    if( param.RDBMS.type == "postgresql") return( postgres.query(query) ) 
+    stop("\n ERRORE: non e' stato indicato il tipo di Database ( 'mysql' o 'postgres')")
+  }
+  postgres.query<-function( query ) {
+    # db.connection <- dbConnect(MySQL(), user=param.user, password=param.password, dbname=dbname, host=param.host)
+    db.connection <- dbConnect(PostgreSQL(), user=param.user, password=param.password,dbname=dbname, host=param.host)
     # browser()
     rs = dbSendQuery(db.connection, query )
     cat("\n\t\tSQL: ",query)
     data.q = fetch(rs, n=-1)
     dbClearResult(rs)
     dbDisconnect(db.connection)
-    return(data.q)
+    return(data.q)    
+  }  
+  mysql.query<-function( query ) {
+    db.connection <- dbConnect(MySQL(), user=param.user, password=param.password, dbname=dbname, host=param.host)
+    rs = dbSendQuery(db.connection, query )
+    cat("\n\t\tSQL: ",query)
+    data.q = fetch(rs, n=-1)
+    dbClearResult(rs)
+    dbDisconnect(db.connection)
+    return(data.q)    
   }
   constructor <- function(RDBMS.type, user, password, host, dbname) {
     param.RDBMS.type<<-RDBMS.type

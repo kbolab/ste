@@ -90,7 +90,9 @@ LLL <- function() {
         host <- mem.struct[[ str.contesto ]][[ str.nome ]]$host
         database <- mem.struct[[ str.contesto ]][[ str.nome ]]$database
         pwd <- mem.struct[[ str.contesto ]][[ str.nome ]]$password
-        mem.struct[[ str.contesto ]][[ str.nome ]]$obj.connector <<- RDBMS(user = user, password = pwd,host = host, dbname = database  )
+        type <- mem.struct[[ str.contesto ]][[ str.nome ]]$type
+        # browser()
+        mem.struct[[ str.contesto ]][[ str.nome ]]$obj.connector <<- RDBMS(RDBMS.type = type, user = user, password = pwd,host = host, dbname = database  )
       }
       if(str.contesto == "RELATION") {
         master.name <- strutt.ospitante$master
@@ -158,7 +160,8 @@ LLL <- function() {
       lst.possibili.comandi<-list("database"=list("synt.type"=1),
                                   "host"=list("synt.type"=1),
                                   "username"=list("synt.type"=1),
-                                  "password"=list("synt.type"=1)
+                                  "password"=list("synt.type"=1),
+                                  "type"=list("synt.type"=1)
                                   )
     }
     if(contesto=="CLASS"){
@@ -247,6 +250,7 @@ LLL <- function() {
     if(is.null(mem.struct$CLASS[[obj.name]])) stop(" missing ENTITY! (err: 8yfd87s)")
     if(is.null(mem.struct$CLASS[[obj.name]]$attribute[[attr.name]])) stop(" missing ATTRIBUTE! (err: 84yfd87s)")
     strutt <- mem.struct$CLASS[[obj.name]]
+    
     # popola le variabili per fare la query
     campoTabella <- strutt$attribute[[attr.name]]
     nomeTabella <- strutt$table.name
@@ -254,16 +258,8 @@ LLL <- function() {
     # table.field <- strutt$attribute$nome
     table.field <- strutt$attribute[[attr.name]]
     link.name <- strutt$link.name
-    # filter <- strutt$filter
-    # cat("\n ",table.field)
-
-    # Risolvi il filtro, se c'e'
-    # if(!is.null(filter)) { 
-    #   filter.tmp.first <- str_locate_all(string = filter,pattern = "\\{")[[1]][1]
-    #   filter.tmp.second <- str_locate_all(string = filter,pattern = "\\}")[[1]][1]
-    #   filter.query <- str_trim(str_sub(string = filter,start = filter.tmp.first+1,end = filter.tmp.second-1))
-    # } else filter.query <- " 1 = 1"
-    
+    DBType <- mem.struct$SQLDB[[link.name]]$type
+# browser()
     # E' di tipo SQL? 
     tipo.attributo <- "normale"
     if(sub(regex.sql,"\\1",table.field) != table.field) tipo.attributo <- "sql"
@@ -276,7 +272,12 @@ LLL <- function() {
     }
     # browser()
     if(tipo.attributo=="normale")   {
-      q <- str_c("select ",table.field," as res from ",nomeTabella," where ",primary.key," = '",id,"';")
+      q <- ""
+      if(DBType=="mysql")
+        q <- str_c("select ",table.field," as res from ",nomeTabella," where ",primary.key," = '",id,"';")
+      if(DBType=="postgres" | DBType=="postgresql")
+        q <- str_c('select "',table.field,'" as res from "',nomeTabella,'" where "',primary.key,'" = \'',id,'\';')
+      if( q == "" ) stop("\n ERRORE: gli unici tipi di DB supportati ad ora sono 'mysql', 'postgres' e 'postgresql'")
     }
     # browser()
     # lancia la query
@@ -288,15 +289,13 @@ LLL <- function() {
     return(res)
   }
   getEntityRelation<-function( obj.name , id , relation.name) {
-    # browser()
+    
     if(is.null(mem.struct$CLASS[[obj.name]])) stop(" missing ENTITY! (err: 8yfd87s)")
     if(is.null(mem.struct$CLASS[[obj.name]]$relation)) stop(" there are no relations for that class")
     if(is.null(mem.struct$CLASS[[obj.name]]$relation[[relation.name]])) stop(" there aren't such relation for the indicated class)")
 
     strutt.ospitante <- mem.struct$CLASS[[obj.name]]$relation[[relation.name]]
     
-    # browser()
-
     regex.sql <- "^[ ]*SQL[ ]*"
     
     if(sub(regex.sql,"\\1",strutt.ospitante$query) != strutt.ospitante$query) tipo.attributo <- "sql"
@@ -406,7 +405,7 @@ LLL <- function() {
     }
 # browser()
     # guarda se trovi un filtro sulla classe MASTER
-    # browser()
+    browser()
     
     # Esegui la query
     q <- str_c("select ",slave.table,".",slave.pk," as res from ",master.table,", ",slave.table," where ",master.table,".",master.link," = ",slave.table,".",slave.link," and ",master.table,".",master.pk," = '",id,"'"," ",order.by," ;")
