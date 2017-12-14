@@ -1,7 +1,8 @@
 #' a DB connector class
 #'
 #' @description  A class to connect with RDBMS
-#' @import RMySQL RPostgreSQL
+#' @importFrom RMySQL dbConnect dbSendQuery fetch dbClearResult dbDisconnect
+#' @importFrom RPostgreSQL dbConnect dbSendQuery fetch dbClearResult dbDisconnect
 #' @param RDBMS.type the RDBMS type. By default 'mysql', at the moment (the only supported)
 #' @param user the user for the RDBMS connection
 #' @param password the password for the RDBMS connection
@@ -17,6 +18,7 @@ RDBMS <- function( RDBMS.type , user="root", password="", host="127.0.0.1", dbna
   # db.connection<-''
 
   query <- function( query ) {
+    # browser()
     if( param.RDBMS.type == "mysql") return( mysql.query(query) )
     if( param.RDBMS.type == "postgres") return( postgres.query(query) )
     if( param.RDBMS.type == "postgresql") return( postgres.query(query) ) 

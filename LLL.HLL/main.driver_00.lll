@@ -3,6 +3,7 @@ define SQLDB mainDB
   host = localhost
   username = root
   password =
+  type = mysql
 enddefine
 
 define CLASS Paziente

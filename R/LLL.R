@@ -14,7 +14,6 @@ LLL <- function() {
   # (Fai anche il Parsing SEMANTICO)
   # ---------------------------------------------------------------  
   loadScript <- function(filename = NA, script = NA){
-    # browser()
     if(!is.na(filename)) {  
       text <- paste(readLines(con = filename,warn = F),collapse = "\n")
       parseScript(script = text )
@@ -31,7 +30,6 @@ LLL <- function() {
   # (Parsing SEMANTICO)
   # ---------------------------------------------------------------
   parseScript<- function( script ) {
-# cat("\n****",script)
     # splitta le definizioni sulla base del "enddefine" in quanto è quello che non ha di fatto attributi
     singole.definizioni <- unlist(str_split(string = script, pattern = "\nenddefine"))
     singole.definizioni <- singole.definizioni[  which(singole.definizioni != "")]
@@ -46,7 +44,6 @@ LLL <- function() {
       }
       # elimina le righe vuote
       arr.righe<-arr.righe[which(arr.righe!="")]
-# browser()
       # identifica il contesto della definizione ed il nome dell'oggetto
       res <- get.nome.e.contesto(stringa = arr.righe[1])
       if(res$error == TRUE ) {
@@ -91,29 +88,16 @@ LLL <- function() {
         database <- mem.struct[[ str.contesto ]][[ str.nome ]]$database
         pwd <- mem.struct[[ str.contesto ]][[ str.nome ]]$password
         type <- mem.struct[[ str.contesto ]][[ str.nome ]]$type
-        # browser()
+        if(!("type" %in% names(mem.struct[[ str.contesto ]][[ str.nome ]]))) {
+          stop("\n ERRORE: non e' stato indicato il tipo di database")
+        }
         mem.struct[[ str.contesto ]][[ str.nome ]]$obj.connector <<- RDBMS(RDBMS.type = type, user = user, password = pwd,host = host, dbname = database  )
       }
       if(str.contesto == "RELATION") {
         master.name <- strutt.ospitante$master
-        # query <- 
-        # browser()
-        # master.name <- unlist(str_split(strutt.ospitante$master,"\\."))[1]
-        # master.field <- unlist(str_split(strutt.ospitante$master,"\\."))[2]
-        # slave.name <- unlist(str_split(strutt.ospitante$slave,"\\."))[1]
-        # slave.field <- unlist(str_split(strutt.ospitante$slave,"\\."))[2]
-        # asc.order.by <- strutt.ospitante[[ "asc order by" ]]
-        # desc.order.by <- strutt.ospitante[[ "desc order by" ]]
-        # if(is.null(mem.struct$CLASS[[ master.name ]])) mem.struct$CLASS[[ master.name ]]<<- list()
+
         if(is.null(mem.struct$CLASS[[ master.name ]]$relation)) mem.struct$CLASS[[ master.name ]]$relation <<- list()
         mem.struct$CLASS[[ master.name ]]$relation[[ str.nome ]]<<-list()
-        # mem.struct$CLASS[[ master.name ]]$relation[[ str.nome ]]$master.name <<- master.name
-        # mem.struct$CLASS[[ master.name ]]$relation[[ str.nome ]]$master.field <<- master.field
-        # mem.struct$CLASS[[ master.name ]]$relation[[ str.nome ]]$slave.name <<- slave.name
-        # mem.struct$CLASS[[ master.name ]]$relation[[ str.nome ]]$slave.field <<- slave.field
-        # mem.struct$CLASS[[ master.name ]]$relation[[ str.nome ]][[ "asc order by" ]] <<- asc.order.by
-        # mem.struct$CLASS[[ master.name ]]$relation[[ str.nome ]][[ "desc order by" ]] <<- desc.order.by
-        # mem.struct$CLASS[[ master.name ]]$relation[[ str.nome ]][[ "filter" ]]<<-strutt.ospitante$filter
         mem.struct$CLASS[[ master.name ]]$relation[[ str.nome ]][[ "query" ]]<<-strutt.ospitante$query
       }
       if(str.contesto == "CLASS") {
@@ -121,13 +105,10 @@ LLL <- function() {
         if(is.null(mem.struct[[ str.contesto ]][[ str.nome ]])) mem.struct[[ str.contesto ]][[ str.nome ]] <<- list()
         # Copia ogni elemento della struttura di appogio precedentemente creata
         for(elemento in names(strutt.ospitante)) {
-
           mem.struct[[ str.contesto ]][[ str.nome ]][[ elemento ]]  <<-  strutt.ospitante[[ elemento ]]
         }
       }
-
     }
-
   }
 
   # ---------------------------------------------------------------
@@ -187,26 +168,21 @@ LLL <- function() {
     trovato <- FALSE
     # provali tutti e fermati quando trovi quello giusto
     for(comando in names(lst.possibili.comandi)) {
-      # cat("\n COMANDO=",comando)
-      # if(contesto == "RELATION" ) browser()
-      
+
       # Parsing della sintassi di tipo 1
       if( lst.possibili.comandi[[comando]]$synt.type == 1 ) {
-        # if(str_trim(stringa)== "filter = SQL{ _A03_VALIDO = '1' }") browser()
         res.1<- str_locate(string = stringa,pattern = paste( c("^[ ]*",comando,"[ ]*=") ,collapse = '') )
         if(sum(is.na(res.1)) == 0  ) {
           trovato <- TRUE;
           secondo.membro <- str_trim(str_sub(string = stringa,start = res.1[1, "end"] +1,end = str_length(stringa)))
-          # trovato. ritorna
+          # trovato: ritorna
           return(list("comando"=list("w1"=comando,"w2"=secondo.membro) , "error"=FALSE))
         }
       }
       # Parsing della sintassi di tipo 2
       if( lst.possibili.comandi[[comando]]$synt.type == 2 ) {
-        # if(str_trim(stringa)== "filter = SQL{ _A03_VALIDO = '1' }") browser()
         # estrai la prima parte (il nome del comando)
         res.1<- str_locate(string = stringa,pattern = paste( c("^[ ]*",comando,"[ ]+") ,collapse = '') )
-        # res.1<- str_locate(string = stringa,pattern = paste( c("^[ ]*",comando,"[ ]*") ,collapse = '') )
         # se non torna, dai errore di sintassi
         if(!(sum(is.na(res.1)) == 0  ) ) {
           return(list("comando"=list() , "error"=TRUE, "err.msg"=paste(c("Syntax error (1) in: ",stringa,""),collapse = '')  ))
@@ -224,7 +200,6 @@ LLL <- function() {
         return(list("comando"=list("w1"=comando,"w2"=nome.primo.elemento,"w3"=nome.secondo.elemento) , "error"=FALSE))
       }
     }
-    # if(str_trim(stringa)== "filter = SQL{ _A03_VALIDO = '1' }") browser()
     # errore di sintassi
     return(list("comando"=list() , "error"=TRUE, "err.msg"=paste(c("Syntax error (3) in: ",stringa,""),collapse = '')  ))
   }
@@ -233,7 +208,6 @@ LLL <- function() {
     else return(FALSE)
   }
   is.relation.of<-function( className , relName , whatInfo="exist" ) {
-    # if(relName=="hasClinicalEvents") browser()
     if(whatInfo=="exist") { 
       if( relName %in% names(mem.struct$CLASS[[className]]$relation) ) return(TRUE)
       else return(FALSE)
@@ -243,6 +217,12 @@ LLL <- function() {
       if("slave.name" %in% names(mem.struct$CLASS[[className]]$relation[[relName]])) return("master-slave")
       return("master-only")
     }    
+    if(whatInfo=="need.PK") { 
+      if(is.relation.of( className= className , relName = relName )==FALSE) return(TRUE)
+      if(is.na(str_locate(string = mem.struct$CLASS[[className]]$relation[[relName]]$query,pattern = "\\$primary.key\\$")[1,1])) return(FALSE)
+      return(TRUE)
+    }    
+    
   }
   getEntityAttribute<-  function( obj.name , id, attr.name  ) {
     regex.sql <- "^[ ]*SQL[ ]*"
@@ -255,11 +235,10 @@ LLL <- function() {
     campoTabella <- strutt$attribute[[attr.name]]
     nomeTabella <- strutt$table.name
     primary.key <- strutt$primary.key
-    # table.field <- strutt$attribute$nome
     table.field <- strutt$attribute[[attr.name]]
     link.name <- strutt$link.name
     DBType <- mem.struct$SQLDB[[link.name]]$type
-# browser()
+
     # E' di tipo SQL? 
     tipo.attributo <- "normale"
     if(sub(regex.sql,"\\1",table.field) != table.field) tipo.attributo <- "sql"
@@ -270,7 +249,7 @@ LLL <- function() {
       query <- str_trim(str_sub(string = table.field,start = first+1,end = second-1))
       q <- str_replace_all(string = query,pattern = "\\$primary.key\\$",as.character(id))
     }
-    # browser()
+
     if(tipo.attributo=="normale")   {
       q <- ""
       if(DBType=="mysql")
@@ -279,7 +258,7 @@ LLL <- function() {
         q <- str_c('select "',table.field,'" as res from "',nomeTabella,'" where "',primary.key,'" = \'',id,'\';')
       if( q == "" ) stop("\n ERRORE: gli unici tipi di DB supportati ad ora sono 'mysql', 'postgres' e 'postgresql'")
     }
-    # browser()
+
     # lancia la query
     tmp.res <- mem.struct$SQLDB[[ link.name ]]$obj.connector$query(query = q)
 
@@ -288,8 +267,8 @@ LLL <- function() {
     else res <- tmp.res[,1]
     return(res)
   }
-  getEntityRelation<-function( obj.name , id , relation.name) {
-    
+  getEntityRelation<-function( obj.name , id , relation.name, lst.argomenti=list()) {
+    # browser()
     if(is.null(mem.struct$CLASS[[obj.name]])) stop(" missing ENTITY! (err: 8yfd87s)")
     if(is.null(mem.struct$CLASS[[obj.name]]$relation)) stop(" there are no relations for that class")
     if(is.null(mem.struct$CLASS[[obj.name]]$relation[[relation.name]])) stop(" there aren't such relation for the indicated class)")
@@ -304,117 +283,27 @@ LLL <- function() {
       first <- str_locate_all(string = strutt.ospitante$query,pattern = "\\{")[[1]][1]
       second <- str_locate_all(string = strutt.ospitante$query,pattern = "\\}")[[1]][1]
       query <- str_trim(str_sub(string = strutt.ospitante$query,start = first+1,end = second-1))
-      q <- str_replace_all(string = query,pattern = "\\$primary.key\\$",as.character(id))
-      
+      q <- query
+      # browser()
+      if(!is.na(id))  { 
+        q <- str_replace_all(string = q,pattern = "\\$primary.key\\$",as.character(id))
+      }
+      for(i in seq(1,length(lst.argomenti))) {
+        q <- str_replace_all(string = q,pattern = str_c("\\$parameter_",i,"\\$"),lst.argomenti[[i]]$value)
+      }
+
       link.name <- mem.struct$CLASS[[obj.name]]$link.name
       
-      # browser()
       tmp.res <- mem.struct$SQLDB[[ link.name ]]$obj.connector$query(query = q)
-      # browser()
+      
       # Prepara il risultato
       if(dim(tmp.res)[1]==0) res <- c()
       else res <- tmp.res[,1]
-      # else res <- tmp.res[,"res"]
+      
       return(res)      
     }    
     stop("\n ERRORE: al momento le relazioni possono essere risolte solo con la query SQL passata esplicitamente")
     
-  }
-
-  old.getEntityRelation<-function( obj.name , id , relation.name) {
-    # browser()
-    if(is.relation.of(className = obj.name,relName = relation.name,whatInfo = "type")=="master-slave")
-      return(getEntityRelation.master.slave( obj.name = obj.name , id = id , relation.name = relation.name ) )
-    if(is.relation.of(className = obj.name,relName = relation.name,whatInfo = "type")=="master-only")
-      return(getEntityRelation.master.only( obj.name = obj.name , id = id , relation.name = relation.name ) )
-    stop("ERRORE. probabilmente quanto invocato non e' una relazione!")    
-  }
-  old.getEntityRelation.master.only<-function( obj.name , id , relation.name) {
-    
-    if(is.null(mem.struct$CLASS[[obj.name]])) stop(" missing ENTITY! (err: 8yfd87s)")
-    if(is.null(mem.struct$CLASS[[obj.name]]$relation)) stop(" there are no relations for that class")
-    if(is.null(mem.struct$CLASS[[obj.name]]$relation[[relation.name]])) stop(" there aren't such relation for the indicated class)")
-    
-    # estrai i dati di interesse, giusto un nickname
-    blocco <- mem.struct$CLASS[[obj.name]]$relation[[relation.name]]
-    
-    # estrai i singoli campi per costruire la query
-    master.table <- mem.struct$CLASS[[blocco$master.name]]$table.name
-    master.pk <- mem.struct$CLASS[[blocco$master.name]]$primary.key
-    link.name <- mem.struct$CLASS[[obj.name]]$link.name
-    # browser()
-    order.by <- ""
-    if("asc order by" %in% names(mem.struct$CLASS[[obj.name]]$relation[[relation.name]])) {
-      nome.campo.ordinamento <- mem.struct$CLASS[[blocco$master.name]]$attribute[[mem.struct$CLASS[[obj.name]]$relation[[relation.name]][["asc order by"]]]]
-      order.by <- str_c("order by ",nome.campo.ordinamento," asc")
-    }
-    if("desc order by" %in% names(mem.struct$CLASS[[obj.name]]$relation[[relation.name]])) {
-      nome.campo.ordinamento <- mem.struct$CLASS[[blocco$master.name]]$attribute[[mem.struct$CLASS[[obj.name]]$relation[[relation.name]][["desc order by"]]]]
-      order.by <- str_c("order by ",nome.campo.ordinamento," desc")
-    }
-    # prendi il campo di Filtro (se c'e')
-    # browser()
-    sql.filtering <- " 1 = 1 "
-    if("filter" %in% names(mem.struct$CLASS[[blocco$master.name]]$relation[[relation.name]])) { 
-       filtro <- mem.struct$CLASS[[blocco$master.name]]$relation[[relation.name]][["filter"]]
-       campo <- str_sub( string = filtro, start = 1, end= str_locate(string = filtro,pattern = " ")[1,1]-1)
-       argomento <- str_sub( string = filtro, start = str_locate(string = filtro,pattern = " ")[1,1])       
-       nome.campo.DB <- mem.struct$CLASS[[blocco$master.name]]$attribute[[campo]]
-       sql.filtering <- str_c( sql.filtering," and ", nome.campo.DB, " ", argomento )
-       # browser()
-    }
-    # Ora guarda se c'e' un filtro sulla classe MASTER
-    # browser()
-    
-    # Esegui la query
-    # q <- str_c("select ",master.table,".",master.pk," as res from ",master.table," " where ",master.table,".",nome.campo.ordinamento," = ",slave.table,".",slave.link," and ",master.table,".",master.pk," = '",id,"'"," ",order.by," ;")
-    q <- str_c("select ",master.table,".",master.pk," as res from ",master.table," where  ",sql.filtering,"; ")
-    tmp.res <- mem.struct$SQLDB[[ link.name ]]$obj.connector$query(query = q)
-    # browser()
-    # Prepara il risultato
-    if(dim(tmp.res)[1]==0) res <- c()
-    else res <- tmp.res[,"res"]
-    return(res)
-  }  
-  getEntityRelation.master.slave<-function( obj.name , id , relation.name) {
-
-    if(is.null(mem.struct$CLASS[[obj.name]])) stop(" missing ENTITY! (err: 8yfd87s)")
-    if(is.null(mem.struct$CLASS[[obj.name]]$relation)) stop(" there are no relations for that class")
-    if(is.null(mem.struct$CLASS[[obj.name]]$relation[[relation.name]])) stop(" there aren't such relation for the indicated class)")
-
-    # estrai i dati di interesse, giusto un nickname
-    blocco <- mem.struct$CLASS[[obj.name]]$relation[[relation.name]]
-
-    # estrai i singoli campi per costruire la query
-    master.table <- mem.struct$CLASS[[blocco$master.name]]$table.name
-    slave.table <- mem.struct$CLASS[[blocco$slave.name]]$table.name
-    master.pk <- mem.struct$CLASS[[blocco$master.name]]$primary.key
-    master.link<-mem.struct$CLASS[[blocco$master.name]]$attribute[[blocco$master.field]]
-    slave.link<-mem.struct$CLASS[[blocco$slave.name]]$attribute[[blocco$slave.field]]
-    slave.pk <- mem.struct$CLASS[[blocco$slave.name]]$primary.key
-    link.name <- mem.struct$CLASS[[obj.name]]$link.name
-    
-    order.by <- ""
-    if("asc order by" %in% names(mem.struct$CLASS[[obj.name]]$relation[[relation.name]])) {
-      nome.campo.ordinamento <- mem.struct$CLASS[[blocco$slave.name]]$attribute[[mem.struct$CLASS[[obj.name]]$relation[[relation.name]][["asc order by"]]]]
-      order.by <- str_c("order by ",nome.campo.ordinamento," asc")
-    }
-    if("desc order by" %in% names(mem.struct$CLASS[[obj.name]]$relation[[relation.name]])) {
-      nome.campo.ordinamento <- mem.struct$CLASS[[blocco$slave.name]]$attribute[[mem.struct$CLASS[[obj.name]]$relation[[relation.name]][["desc order by"]]]]
-      order.by <- str_c("order by ",nome.campo.ordinamento," desc")
-    }
-# browser()
-    # guarda se trovi un filtro sulla classe MASTER
-    browser()
-    
-    # Esegui la query
-    q <- str_c("select ",slave.table,".",slave.pk," as res from ",master.table,", ",slave.table," where ",master.table,".",master.link," = ",slave.table,".",slave.link," and ",master.table,".",master.pk," = '",id,"'"," ",order.by," ;")
-    tmp.res <- mem.struct$SQLDB[[ link.name ]]$obj.connector$query(query = q)
-
-    # Prepara il risultato
-    if(dim(tmp.res)[1]==0) res <- c()
-    else res <- tmp.res[,"res"]
-    return(res)
   }
   # ----------------------------------------------------------------
   # RUN
@@ -432,7 +321,6 @@ LLL <- function() {
     mem.struct<<-list()
     mem.struct$SQLDB<<-list()
     mem.struct$CLASS<<-list()
-    # mem.struct$RELATION<<-list()
     global.DB.connectors<<-list()
   }
   costructor()

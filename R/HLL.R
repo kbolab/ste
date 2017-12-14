@@ -18,12 +18,6 @@ HLL <- function() {
     # splitta le righe ed elimina le righe vuote
     arr.righe <- str_trim(unlist(str_split(string = script,pattern = "\n")))
 
-    # -im k3
-    # Fai il pre-processing per identificare strutture quali cicli, if-then-else, etc..
-    # e butta tutto nella memoria di elaborazione    
-    # mem.struct$script.structures <<- preProcessing.Script( script.lines = arr.righe )
-    # -fm k3
-    
     script.terminato <- FALSE
     indice.riga <- 1
     while( script.terminato == FALSE ) {
@@ -44,7 +38,6 @@ HLL <- function() {
       # Parse della stringa:
       # SE NON E' APERTO UN CONTESTO :
       if( length(mem.struct$define.context)==0) {
-        # cat("\n str.riga=",str.riga)
         res <- execute(script = str.riga , complete.script = arr.righe , script.cursor = indice.riga)
         # Se era un return, restituisci
         if(res$operation.token=="return") return(res)
@@ -60,16 +53,11 @@ HLL <- function() {
         }
       }
       
-      # if(res$operation.token=="ENDFOREACH") browser()
-      # if(res$operation.token=="FOREACH") browser()
-          
       if(res$operation.token=="IF") { jump.statement <-TRUE ; }
       if(res$operation.token=="ENDIF") { jump.statement <-TRUE ; }
       if(res$operation.token=="ELSE") { jump.statement <-TRUE ;  }
-      # if(res$operation.token=="FOREACH") { jump.statement <-TRUE ;  }
       if(res$operation.token=="ENDFOREACH") { jump.statement <-TRUE ;  }
 
-      # if( jump.statement == TRUE )  browser()
       # Se l'istruzione eseguita era una istruzione che prevedeva un salto, comportati di conseguenza
       # (non aggiornare il cursore in avanti di uno, ma fai il jump previsto)
       if( jump.statement == TRUE ) 
@@ -90,13 +78,7 @@ HLL <- function() {
     obj.HLL$setEnv( env = LLL.env , mem = mem.struct )
     # Fai il parse dello script
     # Esegue il corrispettivo di una sola riga
-    # res <- obj.HLL$parseScript( script = HLL.script )
-    # cat("\n ===> REC: ",HLL.script)
     res <- obj.HLL$execute( script = HLL.script )
-    # if( HLL.script =="Tools.today") browser()
-    # cat("\n <=== REC")
-    # browser()
-    # browser()
     # restituisci il risultato
     return(res)
   }
@@ -114,14 +96,11 @@ HLL <- function() {
     tmp.mem.struct$define.context<-list()
     tmp.mem.struct$implicit.PK<-NA
     tmp.mem.struct$lst.parameters<-list()
-# if(length(lst.argomenti)>0) browser()
+    
     # Crea un oggetto HLL
     obj.HLL<-HLL()
-    # prendi lo script da mandare (togli 'define' ed 'enddefine')
-    # -im k2
-    # HLL.script <- mem.struct$class.methods[[classe]][[metodo]]
+
     HLL.script <- mem.struct$class.methods[[classe]][[metodo]]$script
-    # -fm k2
     HLL.script <- HLL.script[ 2: (length(HLL.script)-1) ]
     HLL.script <- paste(HLL.script, collapse = "\n")
 
@@ -169,17 +148,13 @@ HLL <- function() {
   # ---------------------------------------------------------------
   proxy.mem.contesto.set<-function( method.name=NA, class.name=NA , destroy.contest = FALSE) {
     # Se devi distruggere il contesto, non perdere tempo!
-    # browser()
     if(destroy.contest==TRUE ) {
-      # -im k3
+
       # prima di chiudere il contesto, fai il parsing di quanto fino ad ora accumulato.
       # Considera che lo script e' gia' stato aggiundo dagli "addline"
-      # browser()
       method.name <- mem.struct$define.context$method.name
       class.name <- mem.struct$define.context$class.name
       mem.struct$class.methods[[class.name]][[method.name]]$struttura <<- preProcessing.Script( script.lines = mem.struct$define.context$script )
-      # -fm -3   
-      # browser()
       mem.struct$define.context <<- list()
       return()
     }
@@ -187,31 +162,21 @@ HLL <- function() {
     mem.struct$define.context$method.name <<- method.name
     mem.struct$define.context$class.name <<- class.name
     mem.struct$define.context$script <<- c()
-    # mem.struct$class.method
-    # browser()
+    
     if(!("class.methods" %in% names(mem.struct))) mem.struct$class.methods<<-list()
     if(! ( class.name %in% names(mem.struct$class.methods) ) ) mem.struct$class.methods[[class.name]]<<-list()
-    # -im k2
-    # if(!(method.name %in% names(mem.struct$class.methods[[class.name]]))) mem.struct$class.methods[[class.name]][[method.name]]<<-c()
     if(!(method.name %in% names(mem.struct$class.methods[[class.name]]))) mem.struct$class.methods[[class.name]][[method.name]]<<-list("script"=c(),"struttura"=c())
-    # -fm k2
   }
   # ---------------------------------------------------------------
   # proxy.mem.contesto.addLine
   # proxy per l'aggiunta di una linea al contesto
   # ---------------------------------------------------------------
   proxy.mem.contesto.addLine<-function(  stringa ) {
-    # browser()
     if( length(mem.struct$define.context)==0 ) stop("\n errore, non e' stato definito alcun contesto in cui copiare le righe")
     mem.struct$define.context$script <<- c( mem.struct$define.context$script , stringa)
     class.name <- mem.struct$define.context$class.name
-    # if(class.name=="Evento") browser()
     method.name <- mem.struct$define.context$method.name
-    # cat("\n ***: ",method.name)
-    # -im k2
-    # mem.struct$class.methods[[class.name]][[method.name]] <<- c(mem.struct$class.methods[[class.name]][[method.name]],stringa)
     mem.struct$class.methods[[class.name]][[method.name]]$script <<- c(mem.struct$class.methods[[class.name]][[method.name]]$script,stringa)
-    # -fm k2
   }
   # ---------------------------------------------------------------
   # execute
@@ -219,8 +184,7 @@ HLL <- function() {
   # risolveraa' ricorsivamente le chiamate)
   # ---------------------------------------------------------------
   execute<-  function( script , complete.script = NA , script.cursor = NA) {
-    # browser()
-# if( is.na((script.cursor))) browser()
+
     if(!is.na(script.cursor)) cat("\nS :",script.cursor,":",script)
     stringa <- script
     match.trovato <- FALSE
@@ -239,36 +203,21 @@ HLL <- function() {
     res["foreach"]<- str_extract(string = stringa, pattern = "^[ ]*foreach[ ]*([a-zA-Z]+[a-zA-Z0-9_]*)[ ]+as[ ]+([a-zA-Z]+[a-zA-Z0-9_]*)[ ]*do[ ]*$")
     res["endforeach"]<- str_extract(string = stringa, pattern = "^[ ]*endforeach[ ]*$")
     
-     # browser()
-    # if(stringa=="if( PDVFromDays > threshold ) then") browser()
-    # if(stringa=="else") browser()
+
     #  SET
     if(!is.na(res["set"])) {
-      # if(stringa=="set fi_long_dx = EcoTiroide(idEcoTiroide).dxFiLongitudinale") browser()
-      # if(stringa=="set dataOdierna = Tools.today") browser()
       toReturn <- risolvi.set( stringa , script.cursor = script.cursor )
-      # if(stringa=="set dataOdierna = Tools.today") browser()
-      # cat("\n ==================>",stringa)
-      # if( stringa =="set dataOdierna = Tools.today") browser()
       return(toReturn)
     }
      if(!is.na(res["obj.with.parameters"])) {
        res["obj"] <- NA; res["obj.implicit.PK"] <- NA;
        toReturn <- risolvi.accessoAMetodo.con.parametri( stringa, res )
        return(toReturn) 
-       # if(is.null(toReturn$valore)) browser()
-       # browser()      
-       # if(is.null(toReturn$valore)) toReturn$valore <- global.null.value      
      }     
     # Se e' un' accesso ad un oggetto
     if(!is.na(res["obj"]) | !is.na(res["obj.implicit.PK"])) {
-      # if(is.na(script.cursor)) browser()
-      # if(stringa == "Tools.today") browser()
-      # browser()
       toReturn <- risolvi.accessoAMetodo( stringa, res )
-      # if(is.null(toReturn$valore)) browser()
       if(is.null(toReturn$valore)) toReturn$valore <- global.null.value
-      # browser()
       return(toReturn)      
     }
     #  RETURN
@@ -360,12 +309,6 @@ HLL <- function() {
   # ----------------------------------------------------   
   risolvi.foreach<-function( stringa , complete.script , script.cursor  ) {
 
-    # if(!is.null(mem.struct$active.loops)) { 
-    #   if(length(mem.struct$active.loops) > 0) { 
-    #     if(mem.struct$active.loops[[as.character(script.cursor)]]$cursorIndexPos==33) browser()
-    #   }
-    # }
-    
     runningClass <- mem.struct$running.class
     runningMethod <- mem.struct$running.method
     matrice <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$foreach$matrice
@@ -374,8 +317,6 @@ HLL <- function() {
     cursore <- riga.di.interesse["cursore"]
     arr2run <- riga.di.interesse["array"] 
     endForEachLine <- riga.di.interesse["linkedTo"] 
-    
-    # browser()
     
     # Prima cerca di capire se c'e' un CONTEXT aperto per questo FOREACH
     # se no, crealo (sempre che la condizione abbia senso)
@@ -451,11 +392,7 @@ HLL <- function() {
     # Ora prova ad indovinare il tipo di sto' cazzo di cursore
     if( is.na(mem.struct$var[[cursore]]$value ))  { stop("\n ERRORE... vorrei proprio capire come fa ad arrivare NA il cursore, a questo punto...") }
     mem.struct$var[[cursore]]$type <<- definisci.tipo.variabile( mem.struct$var[[cursore]]$value )$tipo.variabile.restituita
-    # <<-list( "type" = "NULL", "value" = global.null.value )
-    
-    # if(mem.struct$active.loops[[as.character(script.cursor)]]$cursorIndexPos==33) browser()
-    
-     # cat("\n ******************************* \n", mem.struct$var[[cursore]]$value,"\n ******************************* ")
+
     return( 
       list( "valore" = NA,
             "operation.token" = "FOREACH",
@@ -471,10 +408,8 @@ HLL <- function() {
     runningClass <- mem.struct$running.class
     runningMethod <- mem.struct$running.method
     
-    # -im k3
-    # arr.endif <- unlist(lapply(mem.struct$script.structures$if.else.endif, function(x){ x$riga.endif } ))
     arr.endif <- unlist(lapply(mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif, function(x){ x$riga.endif } ))
-    # -fm k3
+
     quale_posizione <- which( arr.endif == script.cursor,arr.ind = T)
     if(length(quale_posizione)==0) stop("ERRORE: non riesco a trovare la posizione cui e' associato l'ENDIF")
     
@@ -497,22 +432,15 @@ HLL <- function() {
     runningClass <- mem.struct$running.class
     runningMethod <- mem.struct$running.method
     
-    # -im k3
-    # arr.else <- unlist(lapply(mem.struct$script.structures$if.else.endif, function(x){ x$riga.else } ))
     arr.else <- unlist(lapply(mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif, function(x){ x$riga.else } ))
-    # -fm k3
-    
+
     quale_posizione <- which( arr.else == script.cursor,arr.ind = T)
     if(length(quale_posizione)==0) stop("ERRORE: non riesco a trovare la posizione cui e' associato l'ELSE")
 
     # Se sto leggendo un ELSE e' perche' ero nella condizione ed ora devo saltare all'endif
     # quindi prendi l'endif associato e zompa!
-    # -im k3
-    # new.script.cursor <- mem.struct$script.structures$if.else.endif[[quale_posizione]]$riga.endif
-    # new.script.cursor <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif
     new.script.cursor <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif[[quale_posizione]]$riga.endif
-    # -fm k3
-    
+
     return( 
       list( "valore" = NA,
             "operation.token" = "ELSE",
@@ -529,25 +457,17 @@ HLL <- function() {
 
     runningClass <- mem.struct$running.class
     runningMethod <- mem.struct$running.method
-    # if(stringa!="if( valore != 'null') then") browser()
     # Bene! Dato che sono stato figo ed ho costruito in pre-processing degli 
     # script la struttura degli if, facciamo che ora vado a ripigliarla!
     # (prima vediamo che ci sia, senno': ERROR! )
-    # -im k3
-    # if( !(as.character(script.cursor) %in% names(mem.struct$script.structures$if.else.endif)) ){
     if( (as.character(script.cursor) %in%  
           names(mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif))==FALSE) {
-    # if( get.related.struct.if.endif(script.cursor = script.cursor, ifExist = TRUE)==FALSE ) {
       stop("Errore! mi sarei aspettato di trovar parlato di questo if, dal pre-processor dello script!")
     }
-    # -fm k3
-    
+
     # prendi i nomi delle sospette variabili da sostituire
-    # -im k3
-    # sospette.variabili <- mem.struct$script.structures$if.else.endif[[as.character(script.cursor)]]$toResolve
     sospette.variabili <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif[[as.character(script.cursor)]]$toResolve
-    # -fm k3
-    # browser()
+    
     valore.trovato<-list(); tipo.variabile <- list()
     for( variabile in sospette.variabili ) {
       if(!(variabile %in% names(mem.struct$var)))  {
@@ -560,12 +480,8 @@ HLL <- function() {
     
     # ora scorri l'array delle posizioni da ricostruire, dove abbiamo indicato con il nome
     # "token" le posizioni in cui e' stata trovata (stimata) una variabile di cui sostituire il valore
-    # -im k3
-    # arrayCondizioneDaRicostruire <- mem.struct$script.structures$if.else.endif[[as.character(script.cursor)]]$arrayCondizioneDaRicostruire
     arrayCondizioneDaRicostruire <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif[[as.character(script.cursor)]]$arrayCondizioneDaRicostruire
-    # -fm k3
-    # browser()
-    # if(stringa!="if( valore != 'null') then") browser()
+
     condizione.finale.da.parsare<-c()
     if(length(arrayCondizioneDaRicostruire)>0) { 
       for( i in 1:length(arrayCondizioneDaRicostruire)) { 
@@ -587,17 +503,12 @@ HLL <- function() {
     } else  { 
       condizione.finale.da.parsare <- arrayCondizioneDaRicostruire
     }
-    # maremma maiala, sono esausto. Comunque ci sono: infine possiamo interpretare la condizione
-    # browser()
+
     esito.condizione <- eval(parse(text=condizione.finale.da.parsare))
-    # browser()
+    
     # Ora cerca di capire dove il cursore di eseuczione dello script dovrebbe venire mosso!
-    # -imf k3
-    # riga.else <- mem.struct$script.structures$if.else.endif[[as.character(script.cursor)]]$riga.else
-    # riga.endif <- mem.struct$script.structures$if.else.endif[[as.character(script.cursor)]]$riga.endif
     riga.else <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif[[as.character(script.cursor)]]$riga.else
     riga.endif <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif[[as.character(script.cursor)]]$riga.endif
-    # -fm k3
     
     if(esito.condizione==TRUE) nuova.posizione.cursore <- script.cursor + 1
     if(esito.condizione==FALSE) { 
@@ -663,7 +574,7 @@ HLL <- function() {
     argomento <- sub("^[ ]*return\\([ ]*","\\1",stringa)
     argomento <- str_sub(argomento,start = 1,end = str_length(argomento)-1)
     argomento <- str_trim(argomento)
-    # browser()
+
     # e' un intero?
     if(is.a.number(argomento)) {
       return(list( "valore"=as.numeric(argomento), "operation.token" = "return", "operation"=stringa))
@@ -681,10 +592,7 @@ HLL <- function() {
     stop("-TODO: invoca ricorsivamente il calcolo dell' argomento da restituire")    
   }
   risolvi.accessoAMetodo.con.parametri<-function( stringa , res) {
-    # stringa2 <- "Paziente(12).getDeltaDays( ultimaData, dataOdierna )"
-    # stringa3 <- "Paziente(cursore).getDeltaDays( ultimaData, dataOdierna )"
-    # stringa <- stringa3
-# browser()
+    # browser()
     # estrazione preliminare di sottostringhe
     tmp.pos.2 <- str_trim(str_locate(pattern = "^[a-zA-Z]+[a-zA-Z0-9_]*(\\.|\\([a-zA-Z0-9_ ]+\\))" ,string =  stringa ))
     tmp.pos.2<- as.numeric(tmp.pos.2)
@@ -693,13 +601,17 @@ HLL <- function() {
     if(last.char==".") { 
       # prendi la classe
       classe <- str_sub(string = stringa,start = tmp.pos.2[1],end = tmp.pos.2[2]-1)
-      PK.to.pass <- NA
-      if(is.na(mem.struct$implicit.PK)) stop("\n non e' stato dichiarata la PK implicita (4)")
-      PK.to.pass <- mem.struct$implicit.PK
-      # browser()
       # prendi il metodo
       tmp.str.1 <- str_trim(sub("^[a-zA-Z]+[a-zA-Z0-9_]*" ,"\\1", stringa ))
       metodo <- str_sub(string = tmp.str.1,start = 2,end = str_locate(string = tmp.str.1,pattern = "\\(")[1]-1)
+      # verifica la PK      
+      # browser()
+      # Se non e' una relazione, la PK e' obbligatoria
+      PK.to.pass <- NA      
+      if(LLL.env$is.relation.of(className = classe, relName=metodo) == FALSE) { 
+        if(is.na(mem.struct$implicit.PK)) stop("\n non e' stato dichiarata la PK implicita (4)")
+      }
+      PK.to.pass <- mem.struct$implicit.PK
       # prendi gli argomenti passati 
       tmp.str.2 <- str_trim(sub("^[a-zA-Z]+[a-zA-Z0-9_]*\\.[a-zA-Z0-9_]+\\(" ,"\\1", stringa ))
       tmp.str.3 <- str_sub(string = tmp.str.2,start = 1,end = -2)
@@ -716,13 +628,11 @@ HLL <- function() {
       tmp.str.3 <- str_trim(str_sub(string = tmp.str.1.5,start = str_locate(string = tmp.str.1.5,pattern = "\\(")[1]+1,end = -2))
       tmp.str.4 <- str_split(string = tmp.str.3,pattern = ",")[[1]]   
       arr.argomento <- unlist(lapply(X = tmp.str.4, str_trim ))
-      # browser()
     }
     
     # Ora sbroglia gli argomenti: non vorrei dovessero risolverseli a valle!
     lst.argomento.valori <- c()
     ct <- 1
-    # browser()
     for(argomento in arr.argomento) {
       assigned <- FALSE
       # Se il valore dell'argomento e' gia' passato (es: stringa o int)
@@ -755,13 +665,9 @@ HLL <- function() {
   risolvi.accessoAMetodo<-function( stringa , res , 
                                     nome.oggetto=NA, attributo=NA, obj.pk=NA, 
                                     lst.argomenti=c(), complex.invokation=FALSE) {
-    # if(stringa=="Evento.id_ecoTiroide") browser()
-    # toReturn <- risolvi.accessoAMetodo( stringa )
     # Due controlli formali di apertura, giusto per gradire (se caso implicito ma manca la PK)
-    # browser()
-    # if(stringa=="Tools.getDeltaDays( ultimaData, dataOdierna )") browser()
-    # if(stringa =="Paziente(187).isPDV(365)") browser()
     RelazioneDiTipo <- FALSE
+    # browser()
     if(!is.na(res["obj.implicit.PK"])) {
       # Se non e' un oggetto complesso, estrai classe e metodo
       if(complex.invokation==FALSE) { 
@@ -789,16 +695,19 @@ HLL <- function() {
         attributo <- sub("^[ ]*^[a-zA-Z _]+\\(.*\\)[ ]*\\.[ ]*","\\1",stringa)
       }
     }
-    # browser()
+    
+    need.PK <- LLL.env$is.relation.of( nome.oggetto , attributo , whatInfo="need.PK" )
+    
     # invoca eventuali calcoli ricorsivi, per risolvere 'obj.pk' o il valore di 'secondo.membro'
-    if( is.a.number(obj.pk) == FALSE & RelazioneDiTipo!="master-only") {
+    if( is.a.number(obj.pk) == FALSE & need.PK == TRUE ) {
+    # if( is.a.number(obj.pk) == FALSE & RelazioneDiTipo!="master-only") {      
+    # if( is.a.number(obj.pk) == FALSE) {
       # Vediamo se e' una variabile :)
       if( obj.pk %in% names(mem.struct[["var"]]) ) {
         if( mem.struct[["var"]][[obj.pk]]$type=="numeric"  ) {
           obj.pk <- mem.struct[["var"]][[obj.pk]]$value
         }
         else { 
-          # browser()
           stop("ERRORE: l'id non puo' essere usato come chiave in quanto non numerico") 
         }
       }
@@ -806,24 +715,21 @@ HLL <- function() {
         stop("-TODO: invoca ricorsivamente il calcolo dell' PK dell'oggetto")
       }
     }
-    # if(nome.oggetto=="Tools") browser()
     # due controlli formali, giusto per gradire
-    if(obj.pk=="" & RelazioneDiTipo!="master-only" ) {  cat( "\nmmmhhhh, sono restato senza obj.pk: ", stringa );  stop()  }
+    # if(obj.pk=="" & RelazioneDiTipo!="master-only" ) {  cat( "\nmmmhhhh, sono restato senza obj.pk: ", stringa );  stop()  }
+    if(obj.pk=="" & need.PK==TRUE ) {  cat( "\nmmmhhhh, sono restato senza obj.pk: ", stringa );  stop()  }
     if(nome.oggetto=="") {  cat( "\nmmmhhhh, sono restato senza nome.oggetto: ", stringa );  stop()  }
     if(attributo=="") {  cat( "\nmmmhhhh, sono restato senza attributo: ", stringa );  stop()  }
-    
+    # browser()
     # Se sto cercando di invocare la classe TOOLS!
     if(nome.oggetto=="Tools") {
       obj.tool <- Ste.tool.class()
-      # browser()
       val.from.obj.tool <- obj.tool$proxy( stringa = attributo , lst.parametri = lst.argomenti)
       if(val.from.obj.tool$error == TRUE ) stop("Errore non identificato nell'invocare la classe Tools")
-      # return(val.from.obj.tool$value)
-      # browser()
+
       return(list( "valore"=val.from.obj.tool$value,
                    "operation.token" = "Tools::<method>",
                    "operation"=stringa))
-      # browser()
     }
     
     # E' un metodo? (in HLL)
@@ -843,9 +749,7 @@ HLL <- function() {
       else {
         # E' una relazione fra due classi?
         if(LLL.env$is.relation.of(className = nome.oggetto, relName=attributo) == TRUE) {
-          # browser()
-          res <- LLL.env$getEntityRelation(obj.name = nome.oggetto,id = obj.pk, relation.name = attributo)
-          # browser()
+          res <- LLL.env$getEntityRelation(obj.name = nome.oggetto,id = obj.pk, relation.name = attributo, lst.argomenti = lst.argomenti)
           return(list( "valore"=res,
                        "operation.token" = "getEntityRelation",
                        "operation"=stringa))
@@ -865,7 +769,6 @@ HLL <- function() {
     runningClass <- mem.struct$running.class
     runningMethod <- mem.struct$running.method
     
-    # browser()
     nome.variabile <- str_extract(string = sub("^[ ]*set[ ]*", "\\1", stringa),pattern = "[A-Za-z0-9._]*")
     secondo.membro <- sub("^[ ]*set[ ]+[A-Za-z0-9._]+[ ]*=[ ]*","\\1",stringa)
     
@@ -876,9 +779,7 @@ HLL <- function() {
       if( is.numeric(as.numeric(whichParameter)) == FALSE) stop("\n ERRORE: qualcosa non va in come e' stato indicato il parametro: errore di sintassi?")
       whichParameter <- as.numeric(whichParameter)
       if( whichParameter > length(mem.struct$lst.parameters) ) stop("\n ERRORE: qualcosa non va in come e' stato indicato il parametro: parametro non esistente")
-      # secondo.membro <- mem.struct$lst.parameters[[whichParameter]]$value
       secondo.membro <- mem.struct$lst.parameters[[whichParameter]]$type$risultatoElemento
-      # browser()
     }    
     
     # Se il secondo membro e' un numero non stare a farti tante seghe...
@@ -902,7 +803,6 @@ HLL <- function() {
     test.str<-list()
     test.str["obj"]<- str_extract(string = secondo.membro, pattern = "^[ ]*^[a-zA-Z _]+\\(.*\\)[ ]*\\..*$")
     test.str["obj.implicit.PK"]<- str_extract(string = secondo.membro, pattern = "^[ ]*[a-zA-Z]+[a-zA-Z0-9_]*\\.[a-zA-Z]+[a-zA-Z0-9_]*[ ]*$")
-    # browser()
     if( !is.na(test.str["obj"]) | !is.na(test.str["obj.implicit.PK"]) ) {
       # invoca il calcolo
       risultatoElemento <- invoca.ricorsivamente.HLL(HLL.script =  secondo.membro)
@@ -917,21 +817,12 @@ HLL <- function() {
       ) )
     }
     
-    # browser()
     argomento.multi.token <- FALSE
     if(!is.na(script.cursor)) { 
-      # browser()
-      # mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif
-      # -im k3
-      # if( mem.struct$script.structures$set.statement[[as.character(script.cursor)]]$exitCode == 0 ) {
-      # if( mem.struct$script.structures$set.statement[[as.character(script.cursor)]]$exitCode == 0 ) {
+
       if( mem.struct$class.methods[[mem.struct$running.class]][[mem.struct$running.method]]$struttura$set.statement[[as.character(script.cursor)]]$exitCode == 0 ) {
-      # -fm k3
         argomento.multi.token <- TRUE
-        # -im k3
-        # mmatrice <- mem.struct$script.structures$set.statement[[as.character(script.cursor)]]$matriceElementiRilevati
         mmatrice <- mem.struct$class.methods[[mem.struct$running.class]][[mem.struct$running.method]]$struttura$set.statement[[as.character(script.cursor)]]$matriceElementiRilevati
-        # -fm k3
         # risolvi ogni elemento della matrice (escludendo il primo)
         stringa.parziale <- "";
         for(ct in 1:(dim(mmatrice)[1]))    {
@@ -963,18 +854,9 @@ HLL <- function() {
           } else {
             risultatoElemento <- mmatrice[ct,"substr"]
           }
-          # componi la stringa. Se il risultato e' un array, usa direttamente quello
-          # (in teoria dal controllo sopra non dovrei arrivarci se avessi piu' token. Spero.)
-          # if(tipo.variabile.restituita == "null" | 
-          #    tipo.variabile.restituita == "numeric.array" |
-          #    tipo.variabile.restituita == "string.array")  {      
-          #   stringa.parziale <- risultatoElemento
-          #    }
-          # else { 
-            stringa.parziale <- str_trim(str_c( stringa.parziale , risultatoElemento ))
-          # }
+
+          stringa.parziale <- str_trim(str_c( stringa.parziale , risultatoElemento ))
         }
-        # if(stringa.parziale!="null" & length(stringa.parziale)==1) {
         if(stringa.parziale!="null" ) {
           stringa.settatrice <- paste(c("stringa.parziale <- ",stringa.parziale),collapse = '')
           eval(parse(text=stringa.settatrice))              
@@ -983,12 +865,8 @@ HLL <- function() {
           stringa.parziale <- stringa.parziale
         }       
       }
-      # browser()
-      # stringa.settatrice <- paste(c("stringa.parziale <- ",stringa.parziale),collapse = '')
-      # eval(parse(text=stringa.settatrice))
-      # ECCOMI
     }
-    # if("( fi_long_dx * fi_antpos_dx * fi_trasv_dx *437/1000  )" == secondo.membro) browser()
+    
     if(argomento.multi.token == FALSE) { 
       res <- invoca.ricorsivamente.HLL(HLL.script =  secondo.membro)
     } else { res <- list("valore"=stringa.parziale ) }
@@ -1040,7 +918,6 @@ HLL <- function() {
     }
     
     if(tipo.variabile.restituita == "numeric") risultatoElemento <- as.numeric(risultatoElemento)
-    # if(tipo.variabile.restituita == "string") risultatoElemento <- paste(c("'",risultatoElemento,"'"),collapse = '')
     if(tipo.variabile.restituita == "string") risultatoElemento <- risultatoElemento
     if(tipo.variabile.restituita == "quoted.string") risultatoElemento <- risultatoElemento
     if(tipo.variabile.restituita == "unknown") stop("\n caso strano di tipo variabile non identificata")
@@ -1054,7 +931,6 @@ HLL <- function() {
               "tipo.variabile.restituita"=tipo.variabile.restituita,
               "risultatoElemento"=risultatoElemento
               ))
-    # -fm 
   }  
   # ********************************************************************
   # FINE Sezione di risoluzione della semantica
@@ -1117,26 +993,11 @@ HLL <- function() {
         variabile <- str_trim(str_sub(string = script.lines[riga],start = tmp.set[1,"end"]+1,end = tmp.poss[1,"end"]-1))
         argomento <- str_trim(str_sub(string = script.lines[riga],start = tmp.poss[1,"end"]+1 ,end = str_length(script.lines[riga])))
 
-        # da.elaborare <- pre.processing.if(  script.lines , riga , argomento.gia.estratto = argomento) 
-        # da.elaborare.finale <- str_c( da.elaborare$arrayCondizioneDaRicostruire ,collapse = "#")
-        
-        # Attenzione! Se soddisfa il patternmatching con un accesso ad oggetto, NON SPLITTARLO!!!
-        # match.obj.1<- str_extract(string = str_c( da.elaborare$arrayCondizioneDaRicostruire ,collapse = ""), pattern = "^[ ]*^[a-zA-Z _]+\\(.*\\)[ ]*\\..*$")
-        # match.obj.2<- str_extract(string = str_c( da.elaborare$arrayCondizioneDaRicostruire ,collapse = ""), pattern = "^[ ]*[a-zA-Z]+[a-zA-Z0-9_]*\\.[a-zA-Z]+[a-zA-Z0-9_]*[ ]*$")
-        # if(!is.na(match.obj.1) |  !is.na(match.obj.2)) {
-        #   da.elaborare.finale <- str_c( da.elaborare$arrayCondizioneDaRicostruire ,collapse = "")
-        # }    
-        
         # Prendila matrice dei token con le relative posizioni
         lst.set.stt[[as.character(riga)]]  <-  ricavaElementiDaRisolvereDaStringa( argomento )
-        
-        # da.elaborare <- da.elaborare.finale
-        # matrice.set <- rbind(matrice.set,c(riga, variabile, argomento ,da.elaborare))
-        # colnames(matrice.set)<-c("riga","variabile","argomento","da.elaborare")
-        
       }           
     }
-# browser()
+
     # Ora ricava la struttura degli if-then-else in tutto lo script, arricchendo la lista
     # costruita fino ad ora. (cosi' mi sara' piu' facile, a run-time, zompare qua e la' perche'
     # gia' conoscero' la struttura)
@@ -1144,8 +1005,7 @@ HLL <- function() {
     # browser()
     if(!is.null(matrice.foreach))
       matrice.foreach <- completa.matrice.foreach( matrice = matrice.foreach )
-    # lst.set.stt <- list( "matrice.set"=matrice.set)
-  
+
     return( 
       list( "if.else.endif"= lst.tmp.ris,
             "set.statement" = lst.set.stt,
@@ -1193,7 +1053,7 @@ HLL <- function() {
       numeri.if <- length(matrice[ which( matrice[,"command"]=="if" ),"row" ])
       submatrice <- matrice
       if.assegnati <- 0
-      # browser()
+
       # cicla fino a che non hai assegnato tutti gli IF
       while(if.assegnati < numeri.if)  {
         cur <- 1
@@ -1258,7 +1118,6 @@ HLL <- function() {
                               start = 1,
                               end = unlist(finale)[  length(unlist(finale)) ]-1 )
       tmp.stringa <- str_trim(tmp.stringa)
-      # browser()
       # preferisco lavorare con 'stringa'
       stringa <- tmp.stringa
     } else { stringa <- argomento.gia.estratto; tmp.stringa <- argomento.gia.estratto }
@@ -1277,10 +1136,9 @@ HLL <- function() {
         else  new.stringa <- str_c(new.stringa,str_sub(tmp.stringa,i,i))
       }
     }
-    # browser()
     # splitta il testo rispetto ai marcatori di fine per identificare le possibili variabili
     sep <- c("'","\""," ","+","-","*","/","(",")","|","&","=","!",">","<")
-    # browser()
+
     lst.parole <- list()
     num.parola <- 1
     new.new.stringa <- ""
@@ -1295,7 +1153,6 @@ HLL <- function() {
     
     # aggiungi ai margini il carattere speciale, per consentire in find anche di elementi agli estremi
     new.new.stringa <- str_c("#",new.new.stringa,"#")
-    # browser()
     # cerca ed identifica la posizione per ogni possibile variabile
     tmp.interestingWords <- unlist(str_split(new.new.stringa,pattern = "#"))
     interestingWords <- c()
@@ -1314,7 +1171,6 @@ HLL <- function() {
       for(i in 1:length(interestingWords)) {
         dove <- str_locate_all(string = new.new.stringa,pattern = paste(c("#",interestingWords[i],"#"),collapse = '') )
         for(kkk in 1:nrow(dove[[1]])) {
-          # browser()
           dove[[1]][kkk,"start"] <- dove[[1]][kkk,"start"] - 1
           dove[[1]][kkk,"end"] <- dove[[1]][kkk,"end"] - 2
           matriciazza <- rbind(matriciazza,c(  as.character(interestingWords[i]) , dove[[1]][kkk,]) )
@@ -1333,7 +1189,6 @@ HLL <- function() {
       
       new.new.stringa <- substr(new.new.stringa,2,str_length(new.new.stringa)-1)
       arr.da.ricomporre <- c()
-      # browser()
       tmptmptmp <- str_sub(stringa,0,as.numeric(matriciazza[1,"from"]) )
       arr.da.ricomporre <- c(arr.da.ricomporre,tmptmptmp)
       for(riga in 1:nrow(matriciazza)-1) {
@@ -1346,12 +1201,10 @@ HLL <- function() {
       arr.da.ricomporre <- c(arr.da.ricomporre,tmptmptmp)
     }
     else {  
-      # browser()
       arr.da.ricomporre <- c(stringa)
       names(arr.da.ricomporre)<-""
     }
-    # browser()
-    
+
     return(list("toResolve"=interestingWords,
                 "positions"=lst.Words,
                 "tmp.stringa"=tmp.stringa,
