@@ -4,37 +4,48 @@
 #' @import stringr
 #' @export
 writer <- function() {
+  
   global.behaviourTable<-c()
+  global.stack <- list()
+  
   #=================================================================================
-  # sendLog
+  # send
   # Send a Message Log according to the object policies for the type 
-  # indicated in 'type'
+  # indicated in 'queue'
   #=================================================================================
-  sendLog<-function( msg , type="MSG" ) {
+  send<-function( msg , queue="MSG" ) {
     if(length(msg)>1) msg<-paste(msg,collapse='')
     else msg<-msg 
     
-    printPrefix <- global.behaviourTable[which(global.behaviourTable[,"msg"]==type),"printPrefix"]
-    if(printPrefix=="T") msg <- paste( c("\n",type,": ",msg),collapse = '')
-    else 
-    msg <- msg
+    what2Do<-global.behaviourTable[which(global.behaviourTable[,"queue"]==queue),"behaviour"]
+    what2Do <- unlist(str_split(string = what2Do,pattern = ","))
     
-    what2Do<-global.behaviourTable[which(global.behaviourTable[,"msg"]==type),"behaviour"]
-    
-    if(what2Do == "print")  {
+    # Fai cio' che devi: occhio all'ordine (e' importante)
+    if( "print" %in% what2Do )  {
       cat(msg)
     }
-    if(what2Do == "stop")  {
-      cat(msg)
-      stop();
+    if( "store" %in% what2Do )  {
+      if( !(as.character(msg) %in% names(global.stack))) global.stack[[as.character(msg)]] <- c()
+      global.stack[[as.character(msg)]] <<- rbind(global.stack[[as.character(msg)]],c("msg"=msg))
+    }    
+    if( "stop" %in% what2Do )  {
+      if( "print" %in% what2Do ) cat("\n")
+      stopQuietly()
     }    
   }
   #=================================================================================
   # setBehaviour
   # change a single line in the behaviour table
   #=================================================================================
-  setBehaviour<-function( msg , behaviour) {
-    global.behaviourTable[which(global.behaviourTable[,"msg"]==msg),"behaviour"] <<- global.behaviour
+  setBehaviour<-function( queue , behaviour, file , screen) {
+    if(queue %in% global.behaviourTable[,"queue"]) { 
+      global.behaviourTable[which(global.behaviourTable[,"queue"]==queue),"behaviour"] <<- behaviour
+      global.behaviourTable[which(global.behaviourTable[,"queue"]==queue),"file"] <<- file
+      global.behaviourTable[which(global.behaviourTable[,"queue"]==queue),"screen"] <<- screen
+    }
+    else {
+      global.behaviourTable<<-rbind(global.behaviourTable,c(queue,behaviour,file,screen))
+    }
   }
   #=================================================================================
   # getBehaviour
@@ -43,27 +54,38 @@ writer <- function() {
     return(global.behaviourTable)
   }  
   #=================================================================================
+  # getStack
+  #=================================================================================
+  getStack<-function() {
+    return(global.stack)
+  }    
+  #=================================================================================
   # costructor
   #=================================================================================
   costructor<-function() {
     # Costruisci la tabella dei comportamento
     bht<-c()
-    bht<-rbind(bht,c("WRN","print","T",""))
-    bht<-rbind(bht,c("MSG","print","F",""))
-    bht<-rbind(bht,c("ERR","print","T",""))
-    bht<-rbind(bht,c("NMI","stop","T",""))
-    bht<-rbind(bht,c("LOG","print","T","./pMineR.default.log"))
-    colnames(bht)<-c("msg","behaviour","printPrefix","file")
+    bht<-rbind(bht,c("DEBUG","ignore","","T"))
+    bht<-rbind(bht,c("SQL","print","","T"))
+    bht<-rbind(bht,c("WRN","print","","T"))
+    bht<-rbind(bht,c("MSG","print,store","","T"))
+    bht<-rbind(bht,c("ERR","print","","T"))
+    bht<-rbind(bht,c("NMI","print,stop","","T"))
+    bht<-rbind(bht,c("LOG","print","./pMineR.default.log","T"))
+    colnames(bht)<-c("queue","behaviour","file", "screen")
     global.behaviourTable <<- bht
+    
+    global.stack <<- list()
   }
   #=================================================================================
   costructor();
   #=================================================================================
   return(
     list(
-      "sendLog"=sendLog,
+      "send"=send,
       "setBehaviour"=setBehaviour,
-      "getBehaviour"=getBehaviour
+      "getBehaviour"=getBehaviour,
+      "getStack"=getStack
     )
   )
 }

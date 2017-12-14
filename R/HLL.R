@@ -1213,7 +1213,21 @@ HLL <- function() {
           )
     )    
   }
-  
+  #=================================================================================
+  # load.csv
+  #=================================================================================  
+  parseScript.GUI<-function( script ) { 
+    
+    # aaa <- parseScript( script )
+    # fileName <- getAbsolutePath(pathname = fileName)
+    # 
+    # # prepara un env che poi verrà distrutto
+    # .GlobalEnv$pMineR.IO.shiny.dataLoader.list <- list( "nomeDelFile" = fileName )
+    # on.exit(rm(pMineR.IO.shiny.dataLoader.list, envir=.GlobalEnv))    
+    # 
+    # # Lancia la APP
+    # runApp(appDir = system.file("shiny-gui", "test.01", package = "ste"))
+  }
   # ----------------------------------------------------------------
   # setEnv
   # Setta il contesto, ovvero carica lo schema LLL da usare

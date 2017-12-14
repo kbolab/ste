@@ -1,8 +1,8 @@
 #' a DB connector class
 #'
 #' @description  A class to connect with RDBMS
-#' @importFrom RMySQL dbConnect dbSendQuery fetch dbClearResult dbDisconnect
-#' @importFrom RPostgreSQL dbConnect dbSendQuery fetch dbClearResult dbDisconnect
+#' @importFrom RMySQL dbConnect dbSendQuery fetch dbClearResult dbDisconnect MySQL
+#' @importFrom RPostgreSQL dbConnect dbSendQuery fetch dbClearResult dbDisconnect PostgreSQL
 #' @param RDBMS.type the RDBMS type. By default 'mysql', at the moment (the only supported)
 #' @param user the user for the RDBMS connection
 #' @param password the password for the RDBMS connection
@@ -15,7 +15,6 @@ RDBMS <- function( RDBMS.type , user="root", password="", host="127.0.0.1", dbna
   param.password<-""
   param.host<-""
   param.dbname<-""
-  # db.connection<-''
 
   query <- function( query ) {
     # browser()
@@ -28,8 +27,9 @@ RDBMS <- function( RDBMS.type , user="root", password="", host="127.0.0.1", dbna
     # db.connection <- dbConnect(MySQL(), user=param.user, password=param.password, dbname=dbname, host=param.host)
     db.connection <- dbConnect(PostgreSQL(), user=param.user, password=param.password,dbname=dbname, host=param.host)
     # browser()
-    rs = dbSendQuery(db.connection, query )
     cat("\n\t\tSQL: ",query)
+    rs = dbSendQuery(db.connection, query )
+    # cat("\n\t\tSQL: ",query)
     data.q = fetch(rs, n=-1)
     dbClearResult(rs)
     dbDisconnect(db.connection)
@@ -38,7 +38,7 @@ RDBMS <- function( RDBMS.type , user="root", password="", host="127.0.0.1", dbna
   mysql.query<-function( query ) {
     db.connection <- dbConnect(MySQL(), user=param.user, password=param.password, dbname=dbname, host=param.host)
     rs = dbSendQuery(db.connection, query )
-    cat("\n\t\tSQL: ",query)
+    # cat("\n\t\tSQL: ",query)
     data.q = fetch(rs, n=-1)
     dbClearResult(rs)
     dbDisconnect(db.connection)

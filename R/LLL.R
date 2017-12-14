@@ -6,6 +6,7 @@
 LLL <- function() {
 
   global.DB.connectors<-list()
+  global.obj.writer <- ''
 
   mem.struct <- list()
   
@@ -23,7 +24,7 @@ LLL <- function() {
       parseScript(script = text)
       return()
     }
-    stop("qualcosa devi passare...")
+    global.obj.writer$send(msg = "ERROR: 'filename' and 'script' are both empty!",queue = "NMI")
   }
   # ---------------------------------------------------------------
   # Fai il PARSE di uno script
@@ -47,8 +48,9 @@ LLL <- function() {
       # identifica il contesto della definizione ed il nome dell'oggetto
       res <- get.nome.e.contesto(stringa = arr.righe[1])
       if(res$error == TRUE ) {
-        cat("\n ",res$err.msg)
-        stop()
+        # cat("\n ",res$err.msg)
+        global.obj.writer$send(msg = str_c("\n ",res$err.msg),queue = "NMI")
+        # stop()
       }
       str.contesto <- res$str.contesto
       str.nome <- res$str.nome
@@ -64,8 +66,9 @@ LLL <- function() {
         # estrai il comando della riga
         str.cmd <- get.comando.di.linea(stringa = riga, contesto = str.contesto)
         if(str.cmd$error == TRUE) {
-          cat("\n ",str.cmd$err.msg)
-          stop()
+          global.obj.writer$send(msg = str_c("\n ",str.cmd$err.msg),queue = "NMI")
+          # cat("\n ",str.cmd$err.msg)
+          # stop()
         }
 
         # Popola la mem.struct in funzione del numero di elementi del comando parsato
@@ -89,7 +92,7 @@ LLL <- function() {
         pwd <- mem.struct[[ str.contesto ]][[ str.nome ]]$password
         type <- mem.struct[[ str.contesto ]][[ str.nome ]]$type
         if(!("type" %in% names(mem.struct[[ str.contesto ]][[ str.nome ]]))) {
-          stop("\n ERRORE: non e' stato indicato il tipo di database")
+          global.obj.writer$send(msg = str_c(" ERROR:  you did not specified the kind of database"),queue = "NMI")
         }
         mem.struct[[ str.contesto ]][[ str.nome ]]$obj.connector <<- RDBMS(RDBMS.type = type, user = user, password = pwd,host = host, dbname = database  )
       }
@@ -117,15 +120,16 @@ LLL <- function() {
   get.nome.e.contesto <-  function( stringa ) {
     res.1<- str_locate(string = stringa,pattern = "^[ ]*define[ ]+[A-Za-z0-9._]*")
     res.2<-str_locate(string = stringa,pattern = "^[ ]*define[ ]+")
-    if(sum(is.na(res.1)) > 0  ) stop("errore di sintassi")
-    if(sum(is.na(res.2)) > 0  ) stop("errore di sintassi")
+    # browser()
+    if(sum(is.na(res.1)) > 0  ) global.obj.writer$send(msg = str_c("SYNTAX ERROR: (bds8f3) in '",stringa,"'"),queue = "NMI")
+    if(sum(is.na(res.2)) > 0  ) global.obj.writer$send(msg = str_c("SYNTAX ERROR: (bds8f4) in '",stringa,"'"),queue = "NMI")
     str.contesto <- str_sub(string = stringa, start =res.2[2]+1, end = res.1[2])
     str.nome <- str_replace_all(
       string = str_sub(string = stringa, start =res.1[2]+1, end = str_length(stringa)),
       pattern = " ",replacement = "")
 
     if( !(str.contesto %in% c("SQLDB","CLASS","RELATION"))){
-      return(list("str.contesto"="","str.nome"="", "error"=TRUE,"err.msg"=paste(c("Syntax error: ',",str.contesto,",' is not a valid context"),collapse = '')  ))
+      return(list("str.contesto"="","str.nome"="", "error"=TRUE,"err.msg"=paste(c("SYNTAX ERROR: ',",str.contesto,",' is not a valid context in '",stringa,"'"),collapse = '')  ))
     }
 
     return(list("str.contesto"=str.contesto,"str.nome"=str.nome, "error"=FALSE))
@@ -185,13 +189,13 @@ LLL <- function() {
         res.1<- str_locate(string = stringa,pattern = paste( c("^[ ]*",comando,"[ ]+") ,collapse = '') )
         # se non torna, dai errore di sintassi
         if(!(sum(is.na(res.1)) == 0  ) ) {
-          return(list("comando"=list() , "error"=TRUE, "err.msg"=paste(c("Syntax error (1) in: ",stringa,""),collapse = '')  ))
+          return(list("comando"=list() , "error"=TRUE, "err.msg"=paste(c("SYNTAX ERROR: (1) in: ",stringa,""),collapse = '')  ))
         }
         # ora estrai la seconda parte del nome
         new.stringa <- str_sub(string = stringa,start = res.1[,"end"], end = str_length(stringa))
         res.2<- str_locate(string = new.stringa,pattern = paste( c("^[A-Za-z0-9_. ]*=") ,collapse = '') )
         if(!(sum(is.na(res.2)) == 0  ) ) {
-          return(list("comando"=list() , "error"=TRUE, "err.msg"=paste(c("Syntax error (2) in: ",stringa,""),collapse = '')  ))
+          return(list("comando"=list() , "error"=TRUE, "err.msg"=paste(c("SYNTAX ERROR: (2) in: ",stringa,""),collapse = '')  ))
         }
         nome.primo.elemento <- str_trim(str_sub(string = new.stringa,start = res.2[ ,"start"],end = res.2[ ,"end"]-1))
         nome.secondo.elemento <- str_trim(str_sub(string = new.stringa,start = res.2[ ,"end"]+1,end = str_length(new.stringa)))
@@ -201,7 +205,7 @@ LLL <- function() {
       }
     }
     # errore di sintassi
-    return(list("comando"=list() , "error"=TRUE, "err.msg"=paste(c("Syntax error (3) in: ",stringa,""),collapse = '')  ))
+    return(list("comando"=list() , "error"=TRUE, "err.msg"=paste(c("SYNTAX ERROR: (3) in: ",stringa,""),collapse = '')  ))
   }
   is.attribute.of<-function( className , attrName ) {
     if( attrName %in% names(mem.struct$CLASS[[className]]$attribute) ) return(TRUE)
@@ -227,8 +231,8 @@ LLL <- function() {
   getEntityAttribute<-  function( obj.name , id, attr.name  ) {
     regex.sql <- "^[ ]*SQL[ ]*"
     # qualche sano controllo formale
-    if(is.null(mem.struct$CLASS[[obj.name]])) stop(" missing ENTITY! (err: 8yfd87s)")
-    if(is.null(mem.struct$CLASS[[obj.name]]$attribute[[attr.name]])) stop(" missing ATTRIBUTE! (err: 84yfd87s)")
+    if(is.null(mem.struct$CLASS[[obj.name]])) global.obj.writer$send(msg = "ERROR: (8yfd87s) missing ENTITY!",queue = "NMI")
+    if(is.null(mem.struct$CLASS[[obj.name]]$attribute[[attr.name]])) global.obj.writer$send(msg = "ERROR: (8yfd47s) missing ATTRIBUTE!",queue = "NMI")
     strutt <- mem.struct$CLASS[[obj.name]]
     
     # popola le variabili per fare la query
@@ -256,7 +260,8 @@ LLL <- function() {
         q <- str_c("select ",table.field," as res from ",nomeTabella," where ",primary.key," = '",id,"';")
       if(DBType=="postgres" | DBType=="postgresql")
         q <- str_c('select "',table.field,'" as res from "',nomeTabella,'" where "',primary.key,'" = \'',id,'\';')
-      if( q == "" ) stop("\n ERRORE: gli unici tipi di DB supportati ad ora sono 'mysql', 'postgres' e 'postgresql'")
+      if( q == "" ) global.obj.writer$send(msg = " ERROR: at the moment the only supported types are 'mysql', 'postgres' and 'postgresql'",queue = "NMI")
+        # stop("\n ERRORE: gli unici tipi di DB supportati ad ora sono 'mysql', 'postgres' e 'postgresql'")
     }
 
     # lancia la query
@@ -269,9 +274,13 @@ LLL <- function() {
   }
   getEntityRelation<-function( obj.name , id , relation.name, lst.argomenti=list()) {
     # browser()
-    if(is.null(mem.struct$CLASS[[obj.name]])) stop(" missing ENTITY! (err: 8yfd87s)")
-    if(is.null(mem.struct$CLASS[[obj.name]]$relation)) stop(" there are no relations for that class")
-    if(is.null(mem.struct$CLASS[[obj.name]]$relation[[relation.name]])) stop(" there aren't such relation for the indicated class)")
+
+    if(is.null(mem.struct$CLASS[[obj.name]])) 
+      global.obj.writer$send(msg = str_c(" ERROR:  missing class named '",obj.name,"' (err: 8yf54)"),queue = "NMI")
+    if(is.null(mem.struct$CLASS[[obj.name]]$relation)) 
+      global.obj.writer$send(msg = str_c(" ERROR:  no relation found for '",obj.name,"' class"),queue = "NMI")
+    if(is.null(mem.struct$CLASS[[obj.name]]$relation[[relation.name]])) 
+      global.obj.writer$send(msg = str_c(" ERROR:  the relation ",relation.name," is not available for the class '",obj.name,"'"),queue = "NMI")
 
     strutt.ospitante <- mem.struct$CLASS[[obj.name]]$relation[[relation.name]]
     
@@ -288,8 +297,14 @@ LLL <- function() {
       if(!is.na(id))  { 
         q <- str_replace_all(string = q,pattern = "\\$primary.key\\$",as.character(id))
       }
-      for(i in seq(1,length(lst.argomenti))) {
-        q <- str_replace_all(string = q,pattern = str_c("\\$parameter_",i,"\\$"),lst.argomenti[[i]]$value)
+      # browser()
+      if(length(lst.argomenti)>0) { 
+        for(i in seq(1,length(lst.argomenti))) {
+          if(is.a.quoted.string(lst.argomenti[[i]]$value)==TRUE)
+            q <- str_replace_all(string = q,pattern = str_c("\\$parameter_",i,"\\$"),togli.apici.esterni.stringa(lst.argomenti[[i]]$value))
+          else
+            q <- str_replace_all(string = q,pattern = str_c("\\$parameter_",i,"\\$"),lst.argomenti[[i]]$value)
+        }
       }
 
       link.name <- mem.struct$CLASS[[obj.name]]$link.name
@@ -302,8 +317,7 @@ LLL <- function() {
       
       return(res)      
     }    
-    stop("\n ERRORE: al momento le relazioni possono essere risolte solo con la query SQL passata esplicitamente")
-    
+    global.obj.writer$send(msg = str_c(" ERROR:  at the moment the relations can be solved only with explicit SQL queries"),queue = "NMI")
   }
   # ----------------------------------------------------------------
   # RUN
@@ -322,6 +336,7 @@ LLL <- function() {
     mem.struct$SQLDB<<-list()
     mem.struct$CLASS<<-list()
     global.DB.connectors<<-list()
+    global.obj.writer<<-writer()
   }
   costructor()
   # ----------------------------------------------------------------

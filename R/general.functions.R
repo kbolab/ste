@@ -79,3 +79,8 @@ can.it.be.a.date <- function( stringa ) {
   
   return( list("can.be.a.date"=TRUE, "data.format"=date.format))
 }
+stopQuietly <- function() {
+  opt <- options(show.error.messages = FALSE)
+  on.exit(options(opt))
+  stop()
+}
