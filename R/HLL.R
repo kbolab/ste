@@ -693,7 +693,6 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
     stop("-TODO: invoca ricorsivamente il calcolo dell' argomento da restituire")    
   }
   risolvi.accessoAMetodo.con.parametri<-function( stringa , res) {
-    # browser()
     # estrazione preliminare di sottostringhe
     tmp.pos.2 <- str_trim(str_locate(pattern = "^[a-zA-Z]+[a-zA-Z0-9_]*(\\.|\\([a-zA-Z0-9_ ]+\\))" ,string =  stringa ))
     tmp.pos.2<- as.numeric(tmp.pos.2)
@@ -706,7 +705,6 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
       tmp.str.1 <- str_trim(sub("^[a-zA-Z]+[a-zA-Z0-9_]*" ,"\\1", stringa ))
       metodo <- str_sub(string = tmp.str.1,start = 2,end = str_locate(string = tmp.str.1,pattern = "\\(")[1]-1)
       # verifica la PK      
-      # browser()
       # Se non e' una relazione, la PK e' obbligatoria
       PK.to.pass <- NA      
       if(LLL.env$is.relation.of(className = classe, relName=metodo) == FALSE) { 
@@ -767,14 +765,6 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
                                     nome.oggetto=NA, attributo=NA, obj.pk=NA, 
                                     lst.argomenti=c(), complex.invokation=FALSE) {
     
-    # # DEBUGGER -im
-    # if(global.debug.mode==TRUE & global.deep.level <= global.max.debug.deep  ) {
-    #   cat("\n#",global.executed.statements,": HLL::execute(",stringa,")")
-    #   # cat("\n#",global.executed.statements,": HLL::execute(",nome.oggetto,"::",attributo,")")
-    #   global.executed.statements <<- global.executed.statements + 1
-    # }
-    # # DEBUGGER -fm
-    
     # Due controlli formali di apertura, giusto per gradire (se caso implicito ma manca la PK)
     RelazioneDiTipo <- FALSE
     # browser()
@@ -810,8 +800,6 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
     
     # invoca eventuali calcoli ricorsivi, per risolvere 'obj.pk' o il valore di 'secondo.membro'
     if( is.a.number(obj.pk) == FALSE & need.PK == TRUE ) {
-    # if( is.a.number(obj.pk) == FALSE & RelazioneDiTipo!="master-only") {      
-    # if( is.a.number(obj.pk) == FALSE) {
       # Vediamo se e' una variabile :)
       if( obj.pk %in% names(mem.struct[["var"]]) ) {
         if( mem.struct[["var"]][[obj.pk]]$type=="numeric"  ) {
@@ -826,11 +814,9 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
       }
     }
     # due controlli formali, giusto per gradire
-    # if(obj.pk=="" & RelazioneDiTipo!="master-only" ) {  cat( "\nmmmhhhh, sono restato senza obj.pk: ", stringa );  stop()  }
     if(obj.pk=="" & need.PK==TRUE ) {  cat( "\nmmmhhhh, sono restato senza obj.pk: ", stringa );  stop()  }
     if(nome.oggetto=="") {  cat( "\nmmmhhhh, sono restato senza nome.oggetto: ", stringa );  stop()  }
     if(attributo=="") {  cat( "\nmmmhhhh, sono restato senza attributo: ", stringa );  stop()  }
-    # browser()
     # Se sto cercando di invocare la classe TOOLS!
     if(nome.oggetto=="Tools") {
       obj.tool <- Ste.tool.class()
@@ -841,7 +827,6 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
                    "operation.token" = "Tools::<method>",
                    "operation"=stringa))
     }
-    # browser()
     # E' un metodo? (in HLL)
     if(attributo %in% names(mem.struct$class.methods[[nome.oggetto]])) {
       res <- risolvi.metodo.HLL( classe = nome.oggetto , metodo = attributo, implicit.PK = obj.pk , 
