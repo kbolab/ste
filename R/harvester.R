@@ -3,13 +3,15 @@
 #' @description  A class to collect data and create storages (csv, log, tables, ...)
 #' @import stringr XML
 #' @export
-harvester<-function( ) {
+harvester<-function( LLL.debug.mode = FALSE , HLL.debug.mode = FALSE) {
   global.descriptor.lst <- NA
   global.descriptor.xml <- NA
   global.descriptor.xml.fileName <- NA
   global.obj.LLL <- NA
   global.obj.HLL <- NA
   global.numero.colonne.totale <- NA
+  global.LLL.debug.mode <- FALSE
+  global.HLL.debug.mode <- FALSE
   
   # -------------------------------------------------
   # load.descriptor
@@ -38,28 +40,24 @@ harvester<-function( ) {
   # crea un CSV fisico, partendo dai dati del descrittore
   # -------------------------------------------------  
   calcola.sottoblocco <- function( lista , livello = 1 , id, quante.colonne.fatte = 0 , debug = 0){
-# if(id==8799) browser()
-    # browser()
+
     classe <- lista$.attrs["class"] 
-# if(id==69 & livello==2) browser()
-    cat("\n ****************************\n id = ",id," (",livello,")\n******************************")
-    # if(id==2277) browser()
-    # if( id == 2405 ) browser()
+
+    # cat("\n ****************************\n id = ",id," (",livello,")\n******************************")
+
     # calcolo le mie colonne
     quante.colonne <- sum(names(lista)=="column")
     arr.def.colonna <- c()
     nomi.intestazione.colonne <- as.character(lista[names( lista) == "column"])
-    # if( id==18744 ) browser()
     for( n.col in 1:quante.colonne ) {
-      # if( id == 2405 ) browser()
       # prendi il contenuto della cella
       contenuto.colonna <- as.character(lista[names( lista) == "column"][n.col])
       # e componi il nome dell'attributo 
       stringa.attributo <- str_c(classe,".",contenuto.colonna)
       
-      tmp.HLL <- HLL()
+      tmp.HLL <- HLL( debug.mode = global.HLL.debug.mode)
       imported.class.methods <- global.obj.HLL$getClassMethods()
-      # browser()
+
       tmp.HLL$setEnv(env = global.obj.LLL, mem = list("implicit.PK"=id,"running.class"="",running.method=""),classMethods = imported.class.methods )
       
       res <- tmp.HLL$execute(script = stringa.attributo)
@@ -80,7 +78,7 @@ harvester<-function( ) {
     # se no, invoca il ricorisivo
     metodo.figlio <- as.character(lista$section$.attrs["method"])
     stringa.cattura.nuovi.id <- str_c(classe,".",metodo.figlio)
-    tmp.HLL <- HLL()
+    tmp.HLL <- HLL( debug.mode =  global.HLL.debug.mode)
 
     imported.class.methods <- global.obj.HLL$getClassMethods()
     tmp.HLL$setEnv(env = global.obj.LLL, mem = list("implicit.PK"=id), classMethods = imported.class.methods )
@@ -140,7 +138,7 @@ harvester<-function( ) {
         # browser()
         stringa.oggetto.hll <- global.descriptor.lst$rows[[i]]$text
         # istanzia un oggetto HLL e risolvi la stringa        
-        tmp.HLL <- HLL()
+        tmp.HLL <- HLL( debug.mode =  global.HLL.debug.mode)
         tmp.HLL$setEnv(env = global.obj.LLL,  classMethods = global.obj.HLL$getClassMethods() )
         partial.arr.it <- tmp.HLL$execute(script = stringa.oggetto.hll)
         
@@ -148,6 +146,7 @@ harvester<-function( ) {
       }
     }
     
+    if( length(arr.id) ==0 ) return(c())
     # browser()
     # prendi la parent.class
     altra.sezione.nidificata <- TRUE
@@ -181,15 +180,17 @@ harvester<-function( ) {
   # ----------------------------------------------------------------
   # Costruttore
   # ----------------------------------------------------------------
-  costructor<-function( ) {
+  costructor<-function( LLL.debug.mode, HLL.debug.mode ) {
     global.descriptor.xml <<- NA
     global.descriptor.xml.fileName <<- NA
     global.descriptor.lst <<- NA
     global.numero.colonne.totale<<-NA
-    global.obj.LLL <<- LLL()
-    global.obj.HLL <<- HLL()
+    global.obj.LLL <<- LLL(debug.mode = LLL.debug.mode)
+    global.obj.HLL <<- HLL(debug.mode = HLL.debug.mode)
+    global.LLL.debug.mode <<- LLL.debug.mode
+    global.HLL.debug.mode <<- HLL.debug.mode
   }
-  costructor()
+  costructor( LLL.debug.mode = LLL.debug.mode, HLL.debug.mode = HLL.debug.mode)
   # ----------------------------------------------------------------
   # RETURN di classe
   # ----------------------------------------------------------------
