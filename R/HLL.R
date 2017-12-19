@@ -3,18 +3,27 @@
 #' @description  The engine class to parse and execute HLL scripts
 #' @import stringr
 #' @export
-HLL <- function() {
+HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, max.debug.deep = Inf, arr.breakpoints = c() ) {
 
   LLL.env <- NA
   mem.struct <- list()
   global.null.value <- ""
-  
+  global.debug.mode <- ""
+  global.deep.level <- ""
+  global.executed.statements <- ""
+  global.max.debug.deep <- ""
+  global.arr.breakpoints<- c()
+
   # ---------------------------------------------------------------
   # Fai il PARSE di uno script
   # (Fai anche il Parsing SEMANTICO)
   # ---------------------------------------------------------------  
   parseScript<-function( script ) {
-    cat("\n =====================================")
+
+    # setta il modo di debug
+    # global.debug.mode <<- debug.mode
+    # global.deep.level <<- deep.level
+    
     # splitta le righe ed elimina le righe vuote
     arr.righe <- str_trim(unlist(str_split(string = script,pattern = "\n")))
 
@@ -22,7 +31,7 @@ HLL <- function() {
     indice.riga <- 1
     while( script.terminato == FALSE ) {
       
-      # il comando in qeustione e' una istruzione di salto?
+      # il comando in questione e' una istruzione di salto?
       # (setta il def a no)
       jump.statement <- FALSE
       
@@ -38,7 +47,9 @@ HLL <- function() {
       # Parse della stringa:
       # SE NON E' APERTO UN CONTESTO :
       if( length(mem.struct$define.context)==0) {
+      # browser()
         res <- execute(script = str.riga , complete.script = arr.righe , script.cursor = indice.riga)
+      
         # Se era un return, restituisci
         if(res$operation.token=="return") return(res)
       }
@@ -72,12 +83,23 @@ HLL <- function() {
   # esegue la chiamata e manipola il risultato
   # ---------------------------------------------------------------
   invoca.ricorsivamente.HLL<-function( HLL.script ) {
+    
+    # # DEBUGGER -im
+    # if(global.debug.mode==TRUE & global.deep.level <= global.max.debug.deep  ) {
+    #   cat("\n#",global.executed.statements,": HLL::execute(",HLL.script,")")
+    #   global.executed.statements <<- global.executed.statements + 1
+    # }
+    # # DEBUGGER -fm
+    
     # Crea un oggetto HLL
-    obj.HLL<-HLL()
+    obj.HLL<-HLL( debug.mode = global.debug.mode , deep.level = (global.deep.level+1) , 
+                  executed.statements = global.executed.statements, max.debug.deep = global.max.debug.deep,
+                  arr.breakpoints = global.arr.breakpoints )
     # setta l'environment
     obj.HLL$setEnv( env = LLL.env , mem = mem.struct )
     # Fai il parse dello script
     # Esegue il corrispettivo di una sola riga
+    # browser()
     res <- obj.HLL$execute( script = HLL.script )
     # restituisci il risultato
     return(res)
@@ -96,9 +118,12 @@ HLL <- function() {
     tmp.mem.struct$define.context<-list()
     tmp.mem.struct$implicit.PK<-NA
     tmp.mem.struct$lst.parameters<-list()
-    
+    # browser()
     # Crea un oggetto HLL
-    obj.HLL<-HLL()
+    # obj.HLL<-HLL()
+    obj.HLL<-HLL( debug.mode = global.debug.mode, deep.level = (global.deep.level+1),
+                  executed.statements = global.executed.statements, max.debug.deep = global.max.debug.deep, 
+                  arr.breakpoints = global.arr.breakpoints )
 
     HLL.script <- mem.struct$class.methods[[classe]][[metodo]]$script
     HLL.script <- HLL.script[ 2: (length(HLL.script)-1) ]
@@ -110,10 +135,35 @@ HLL <- function() {
     tmp.mem.struct$running.method<-metodo
     tmp.mem.struct$lst.parameters<-lst.argomenti
 
+    # DEBUGGER -im -less important
+    if(global.debug.mode==TRUE & global.deep.level <= global.max.debug.deep  ) {
+      if(is.na(script))
+        cat(paste(c("\n#",global.executed.statements,"CALL - HLL::",classe,"::",metodo),collapse = ' '))
+      else
+        cat(paste(c("\n#",global.executed.statements,"CALL - HLL::",script),collapse = ' '))
+      
+      if( global.executed.statements %in% global.arr.breakpoints ) handle.debug.console.GUI()      
+      global.executed.statements <<- global.executed.statements + 1
+    }
+    # DEBUGGER -fm    
+    
     # Fai il push dell'ENV
     obj.HLL$setEnv( env = LLL.env , mem = tmp.mem.struct )
     # Fai il parse dello script
     res <- obj.HLL$parseScript( script = HLL.script )
+    
+    # DEBUGGER -im -less important
+    # browser()
+    if(global.debug.mode==TRUE & global.deep.level <= global.max.debug.deep  ) {
+      if(is.na(script))
+        cat(paste(c("\n#",global.executed.statements,"BACK - HLL::",classe,"::",metodo),collapse = ' '))
+      else
+        cat(paste(c("\n#",global.executed.statements,"BACK - HLL::",script),collapse = ' '))
+      if( global.executed.statements %in% global.arr.breakpoints ) handle.debug.console.GUI()      
+      global.executed.statements <<- global.executed.statements + 1
+    }
+    # DEBUGGER -fm    
+    
     # restituisci il risultato
     return(res)
   }
@@ -183,9 +233,8 @@ HLL <- function() {
   # Esegui un singolo comando (o una linea: per quanto possibile
   # risolveraa' ricorsivamente le chiamate)
   # ---------------------------------------------------------------
-  execute<-  function( script , complete.script = NA , script.cursor = NA) {
+  execute<-  function( script , complete.script = NA , script.cursor = NA ) {
 
-    if(!is.na(script.cursor)) cat("\nS :",script.cursor,":",script)
     stringa <- script
     match.trovato <- FALSE
     res<-list()
@@ -203,69 +252,77 @@ HLL <- function() {
     res["foreach"]<- str_extract(string = stringa, pattern = "^[ ]*foreach[ ]*([a-zA-Z]+[a-zA-Z0-9_]*)[ ]+as[ ]+([a-zA-Z]+[a-zA-Z0-9_]*)[ ]*do[ ]*$")
     res["endforeach"]<- str_extract(string = stringa, pattern = "^[ ]*endforeach[ ]*$")
     
-
     #  SET
-    if(!is.na(res["set"])) {
+    if(!is.na(res["set"]) & match.trovato == FALSE) {
       toReturn <- risolvi.set( stringa , script.cursor = script.cursor )
-      return(toReturn)
+      match.trovato <- TRUE
     }
-     if(!is.na(res["obj.with.parameters"])) {
+     if(!is.na(res["obj.with.parameters"]) & match.trovato == FALSE) {
        res["obj"] <- NA; res["obj.implicit.PK"] <- NA;
        toReturn <- risolvi.accessoAMetodo.con.parametri( stringa, res )
-       return(toReturn) 
+       match.trovato <- TRUE
      }     
     # Se e' un' accesso ad un oggetto
-    if(!is.na(res["obj"]) | !is.na(res["obj.implicit.PK"])) {
+    if( (!is.na(res["obj"]) | !is.na(res["obj.implicit.PK"])) & match.trovato == FALSE ) {
       toReturn <- risolvi.accessoAMetodo( stringa, res )
       if(is.null(toReturn$valore)) toReturn$valore <- global.null.value
-      return(toReturn)      
+      match.trovato <- TRUE
     }
     #  RETURN
-    if(!is.na(res["return"])) {
+    if(!is.na(res["return"]) & match.trovato == FALSE) {
       toReturn <- risolvi.return( stringa )
-      return(toReturn)     
+      match.trovato <- TRUE
     }
     # DEFINE
-    if(!is.na(res["define"])) {
+    if(!is.na(res["define"]) & match.trovato == FALSE) {
       toReturn <- risolvi.define( stringa )
-      return(toReturn)           
+      match.trovato <- TRUE
     }
     #  ENDDEFINE
-    if(!is.na(res["enddefine"])) {
+    if(!is.na(res["enddefine"]) & match.trovato == FALSE) {
       stop("\n errore, qui ci dovrei arrivare solo senza un contesto aperto... (e se sono qui vuol dire che non ci sono contesti aperti)")
     }
     # STR_CAT
-    if(!is.na(res["str_cat"])) {
+    if(!is.na(res["str_cat"]) & match.trovato == FALSE) {
       toReturn <- risolvi.str_cat( stringa )
-      return(toReturn)  
+      match.trovato <- TRUE
     }
     #  IF
-    if(!is.na(res["if"])) {
+    if(!is.na(res["if"]) & match.trovato == FALSE) {
       toReturn <- risolvi.if( stringa, complete.script = complete.script , script.cursor = script.cursor)
-      return(toReturn)  
+      match.trovato <- TRUE
     }    
     #  ELSE
-    if(!is.na(res["else"])) {
-      # browser()
+    if(!is.na(res["else"]) & match.trovato == FALSE) {
       toReturn <- risolvi.else( stringa, complete.script = complete.script , script.cursor = script.cursor)
-      return(toReturn)  
+      match.trovato <- TRUE
     }      
     #  ENDIF
-    if(!is.na(res["endif"])) {
+    if(!is.na(res["endif"]) & match.trovato == FALSE) {
       toReturn <- risolvi.endif( stringa, complete.script = complete.script , script.cursor = script.cursor)
-      return(toReturn)  
+      match.trovato <- TRUE
     }        
     #  FOREACH
-    if(!is.na(res["foreach"])) {
+    if(!is.na(res["foreach"]) & match.trovato == FALSE) {
       toReturn <- risolvi.foreach( stringa, complete.script = complete.script , script.cursor = script.cursor)
-      return(toReturn)  
+      match.trovato <- TRUE
     }       
     #  ENDFOREACH
-    if(!is.na(res["endforeach"])) {
+    if(!is.na(res["endforeach"]) & match.trovato == FALSE) {
       toReturn <- risolvi.endforeach( stringa, complete.script = complete.script , script.cursor = script.cursor)
-      return(toReturn)  
+      match.trovato <- TRUE
     }       
-
+    
+    if(match.trovato== TRUE) { 
+      if(global.debug.mode==TRUE & global.deep.level <= global.max.debug.deep  & is.numeric(script.cursor) ) {
+        barra.t <- paste(c("|",rep("-",global.deep.level),">"),collapse='')
+        cat("\n",barra.t,"Lvl:",global.deep.level,"Line:",script.cursor,":#",global.executed.statements,":",script)
+        if( global.executed.statements %in% global.arr.breakpoints ) handle.debug.console.GUI()
+        global.executed.statements <<- global.executed.statements + 1
+      }
+      return(toReturn)
+    }
+    
     # =========================================
     # SYNTAX ERROR!
     # =========================================
@@ -274,6 +331,50 @@ HLL <- function() {
       cat( "\n syntax error in resolving: ", stringa )
       stop()
     }
+  }
+  handle.debug.console.GUI <- function( ){
+    keyPressed = ""
+    valid.keypressed.keys = c("c","n") 
+    while( !(keyPressed %in% valid.keypressed.keys) ) { 
+      cat("\n ----------------------------------------------------------------------")
+      cat("\n press :")
+      cat("\n\t[n]+[enter]: next (1 more line)")
+      cat("\n\t[c]+[enter]: continue (shutdown debug mode and continue)")
+      cat("\n\t[v]+[enter]: see variables")
+      cat("\n\t[q]+[enter]: quit")
+      
+      keyPressed = readline()
+      
+      if( keyPressed == "q" ) stop()
+      if( keyPressed == "n" )  {
+        global.arr.breakpoints <<- unique(c(global.arr.breakpoints, (global.executed.statements+1) ))
+      }
+      if( keyPressed == "c" )  {
+        global.arr.breakpoints <<- c()
+      }      
+      if( keyPressed == "v" )  {
+        cat("\n ----------------------------------------------------------------------")
+        print.vars()
+      }      
+    }
+    cat("\n ----------------------------------------------------------------------")
+  }
+  print.vars<- function( ) {
+    cat("\n")
+    matrice <- c()
+    if(length(mem.struct$var)==0) {
+      cat("\n <no vars>"); return()
+    }
+    for(  ct in seq(1:length(mem.struct$var))) {
+      nome <- names(mem.struct$var)[ct]
+      tipo <- mem.struct$var[[nome]]$type
+      valore <- mem.struct$var[[nome]]$value
+      if(length(valore)>1) valore <- paste(valore, collapse = ',')
+      matrice <- rbind(matrice, c(nome, tipo, valore) ) 
+    }
+    colnames(matrice)<-c("nome","tipo","valore")
+    print(matrice)
+    return()
   }
   # ********************************************************************
   # INIZIO Sezione di risoluzione della semantica
@@ -665,6 +766,15 @@ HLL <- function() {
   risolvi.accessoAMetodo<-function( stringa , res , 
                                     nome.oggetto=NA, attributo=NA, obj.pk=NA, 
                                     lst.argomenti=c(), complex.invokation=FALSE) {
+    
+    # # DEBUGGER -im
+    # if(global.debug.mode==TRUE & global.deep.level <= global.max.debug.deep  ) {
+    #   cat("\n#",global.executed.statements,": HLL::execute(",stringa,")")
+    #   # cat("\n#",global.executed.statements,": HLL::execute(",nome.oggetto,"::",attributo,")")
+    #   global.executed.statements <<- global.executed.statements + 1
+    # }
+    # # DEBUGGER -fm
+    
     # Due controlli formali di apertura, giusto per gradire (se caso implicito ma manca la PK)
     RelazioneDiTipo <- FALSE
     # browser()
@@ -731,7 +841,7 @@ HLL <- function() {
                    "operation.token" = "Tools::<method>",
                    "operation"=stringa))
     }
-    
+    # browser()
     # E' un metodo? (in HLL)
     if(attributo %in% names(mem.struct$class.methods[[nome.oggetto]])) {
       res <- risolvi.metodo.HLL( classe = nome.oggetto , metodo = attributo, implicit.PK = obj.pk , 
@@ -1213,29 +1323,17 @@ HLL <- function() {
           )
     )    
   }
-  #=================================================================================
-  # load.csv
-  #=================================================================================  
-  parseScript.GUI<-function( script ) { 
-    
-    # aaa <- parseScript( script )
-    # fileName <- getAbsolutePath(pathname = fileName)
-    # 
-    # # prepara un env che poi verrà distrutto
-    # .GlobalEnv$pMineR.IO.shiny.dataLoader.list <- list( "nomeDelFile" = fileName )
-    # on.exit(rm(pMineR.IO.shiny.dataLoader.list, envir=.GlobalEnv))    
-    # 
-    # # Lancia la APP
-    # runApp(appDir = system.file("shiny-gui", "test.01", package = "ste"))
-  }
   # ----------------------------------------------------------------
   # setEnv
   # Setta il contesto, ovvero carica lo schema LLL da usare
   # ----------------------------------------------------------------
-  setEnv<-function( env = list(), mem = list(), classMethods=list() ) {
+  setEnv<-function( env = list(), mem = list(), classMethods=list(), debug.mode = NA, max.debug.deep = NA, arr.breakpoints = c() ) {
     if(length(env)>0) LLL.env <<- env
     if(length(mem)>0) mem.struct <<- mem
     if(length(classMethods)>0) mem.struct$class.methods <<- classMethods
+    if(!is.na(debug.mode)) global.debug.mode <<- debug.mode
+    if(!is.na(max.debug.deep)) global.max.debug.deep<<- max.debug.deep
+    # if(length(arr.breakpoints)!=0) global.arr.breakpoints<<- arr.breakpoints
   }
   getClassMethods<-function(  ) {
     return(mem.struct$class.methods)
@@ -1246,7 +1344,7 @@ HLL <- function() {
   # ----------------------------------------------------------------
   # Costruttore
   # ----------------------------------------------------------------
-  costructor<-function( ) {
+  costructor<-function( debug.mode , deep.level , executed.statements, max.debug.deep, arr.breakpoints  ) {
     LLL.env<<-NA
     mem.struct<<-list()
     mem.struct$var<<-list()
@@ -1255,9 +1353,15 @@ HLL <- function() {
     mem.struct$script.structures <<-list()
     mem.struct$active.loops <<-list()
     mem.struct$lst.parameters <<- list()
-    global.null.value<<-"null"
+    global.null.value <<-"null"
+    global.debug.mode <<- debug.mode
+    global.deep.level <<- deep.level
+    global.executed.statements <<- executed.statements
+    global.max.debug.deep <<- max.debug.deep
+    global.arr.breakpoints <<- arr.breakpoints    
   }
-  costructor()
+  costructor( debug.mode = debug.mode, deep.level = deep.level, executed.statements = executed.statements, 
+              max.debug.deep = max.debug.deep, arr.breakpoints = arr.breakpoints )
   # ----------------------------------------------------------------
   # RETURN di classe
   # ----------------------------------------------------------------

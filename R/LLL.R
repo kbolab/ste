@@ -3,10 +3,11 @@
 #' @description  The engine class to parse and execute LLL scripts
 #' @import stringr
 #' @export
-LLL <- function() {
+LLL <- function( debug.mode = FALSE ) {
 
   global.DB.connectors<-list()
   global.obj.writer <- ''
+  global.debug.mode <- ''
 
   mem.struct <- list()
   
@@ -264,6 +265,14 @@ LLL <- function() {
         # stop("\n ERRORE: gli unici tipi di DB supportati ad ora sono 'mysql', 'postgres' e 'postgresql'")
     }
 
+    # DEBUGGER -im
+    if(global.debug.mode==TRUE ) {
+      barra.t <- paste(c(" ",rep(" ",20)," "),collapse='')
+      cat("\n",barra.t,q)
+      # global.executed.statements <<- global.executed.statements + 1
+    }
+    # DEBUGGER -fm
+    
     # lancia la query
     tmp.res <- mem.struct$SQLDB[[ link.name ]]$obj.connector$query(query = q)
 
@@ -309,6 +318,14 @@ LLL <- function() {
 
       link.name <- mem.struct$CLASS[[obj.name]]$link.name
       
+      # DEBUGGER -im
+      if(global.debug.mode==TRUE ) {
+        barra.t <- paste(c(" ",rep(" ",20)," "),collapse='')
+        cat("\n",barra.t,q)
+        # global.executed.statements <<- global.executed.statements + 1
+      }
+      # DEBUGGER -fm
+      
       tmp.res <- mem.struct$SQLDB[[ link.name ]]$obj.connector$query(query = q)
       
       # Prepara il risultato
@@ -331,14 +348,15 @@ LLL <- function() {
   # ----------------------------------------------------------------
   # Costruttore
   # ----------------------------------------------------------------
-  costructor<-  function( ) {
-    mem.struct<<-list()
-    mem.struct$SQLDB<<-list()
-    mem.struct$CLASS<<-list()
-    global.DB.connectors<<-list()
-    global.obj.writer<<-writer()
+  costructor<-function( debug.mode ) {
+    mem.struct <<- list()
+    mem.struct$SQLDB <<- list()
+    mem.struct$CLASS <<- list()
+    global.DB.connectors <<- list()
+    global.obj.writer <<- writer()
+    global.debug.mode <<- debug.mode
   }
-  costructor()
+  costructor( debug.mode )
   # ----------------------------------------------------------------
   # RETURN di classe
   # ----------------------------------------------------------------

@@ -44,24 +44,6 @@ define getLastEvent as method of Paziente
   return(data)
 enddefine
 
-define isPDV_547 as method of Paziente
-
-  set ultimaData = Paziente.getLastEvent
-  set dataOdierna = Tools.today
-  
-  set PDVFromDays = Tools.getDeltaDays( dataOdierna , ultimaData )
-  set PDVFromDays = Tools.getDeltaDays( ultimaData , dataOdierna )
-  
-  if( PDVFromDays > 547 ) then
-    set stato_paziente = 'PDV'
-  else
-    set stato_paziente = ''
-  endif
-  
-  return( stato_paziente )
-
-enddefine
-
 define isPDV as method of Paziente
 
   set threshold = $parameter_1$
@@ -78,5 +60,4 @@ define isPDV as method of Paziente
   endif
   
   return( stato_paziente )
-
 enddefine
