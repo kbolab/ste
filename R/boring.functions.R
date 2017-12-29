@@ -12,6 +12,12 @@ ricavaElementiDaRisolvereDaStringa<-function( stringa ) {
   lst.Transizioni[["token"]]  <-c( "int"="token", "char"="token",   "sep"="ready", "quote"="ERROR"   )
   lst.Transizioni[["quotedString"]]  <-c( "int"="quotedString", "char"="quotedString",   "sep"="quotedString", "quote"="ready"   )
 
+  # res <- list()
+  # res["obj.implicit.PK"]<- str_extract(string = stringa, pattern = "^[ ]*[a-zA-Z]+[a-zA-Z0-9_]*\\.[a-zA-Z]+[a-zA-Z0-9_]*[ ]*$")
+  # res["obj.with.parameters"]<- str_extract(string = stringa, pattern = "^[ ]*^[a-zA-Z _]+(\\(.*\\))*\\.[a-zA-Z _]+\\(.*\\)$")    
+  # 
+  # if(str_sub(string = stringa,start = 1,end =  str_length("noduloTiroideo"))=="noduloTiroideo") browser()
+  
   lst.tipoSimbolo <- list()
   lst.tipoSimbolo[["int"]] <- c("0","1","2","3","4","5","6","7","8","9",".")
   lst.tipoSimbolo[["char"]] <- c("a","b","c","d","e","f","g","h","i","l","m","n","o","p","q","r","s","t","u","v","z","x","y","j","y","_")
@@ -55,6 +61,9 @@ ricavaElementiDaRisolvereDaStringa<-function( stringa ) {
   # detectata dal for perche' e' uscito prima)
   matrice.log.transizioni <- rbind( matrice.log.transizioni, c( stato.attuale, log.posizione.inizio.stato ,i,str_sub(stringa,log.posizione.inizio.stato,i)  ) )
   colnames(matrice.log.transizioni)<-c("stato","from","to","substr")  
+  
+  
+  # if(str_sub(string = stringa,start = 1,end =  str_length("noduloTiroideo"))=="noduloTiroideo") browser()
   
   return( list( "exitCode" = 0,
                 "matriceElementiRilevati"=matrice.log.transizioni

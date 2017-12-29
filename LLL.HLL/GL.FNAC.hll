@@ -1,0 +1,309 @@
+:---------------------------------------------------------------------
+: primaEcografiaConNoduli
+: Cerca la prima ecografia con presenza di noduli
+:---------------------------------------------------------------------
+define primaEcografiaConNoduli as method of Paziente
+
+  set Eco_Id = Paziente.hasKindOfEvent('Ecografia')
+  
+  foreach Eco_Id as cursor do
+    set idNoduli = noduloTiroideo.relatedToClinicalEvent(cursor)
+    if( idNoduli != 'null') then
+      return(cursor)
+    endif
+  endforeach
+  
+enddefine
+
+:---------------------------------------------------------------------
+: esisteEventoClinicoNelRangeDiDate
+: restituisce i codici degli Eventi clinici di tipo indicato nel range desiderato
+: in caso nessuno sia positivo, restituisce 'null'
+:---------------------------------------------------------------------
+define esisteEventoClinicoNelRangeDiDate as method of Paziente
+  set tipoEventoClinico = $parameter_1$
+  set deltaInferioreGiorni = $parameter_2$
+  set dataDiRiferimento = $parameter_3$
+  set deltaSuperioreGiorni = $parameter_4$
+
+  set dataFrom = Tools.addDaysToDate( dataDiRiferimento, deltaInferioreGiorni )
+  set dataTo = Tools.addDaysToDate( dataDiRiferimento, deltaSuperioreGiorni )
+  
+  set codiEventoClinico = Paziente.hasClinicalEventInDateRange(tipoEventoClinico,dataFrom,dataTo)
+  return(codiEventoClinico)
+
+enddefine
+
+:---------------------------------------------------------------------
+: esisteUnaCalcitoninaPositiva
+: restituisce i codici delle calcitonine positive rispetto all'array dei codici ESAMI passati
+: in caso nessuno sia positivo, restituisce 'null'
+:---------------------------------------------------------------------
+define function esisteUnaCalcitoninaPositiva
+  set arr_id = $parameter_1$
+
+  foreach arr_id as cursor do
+    set valore = Esame(cursor).valore
+    if(valore <= 0 | valore >= 10 ) then
+      return( cursor )
+    endif
+  endforeach
+  
+  return('null')
+enddefine
+:---------------------------------------------------------------------
+: esisteUnTSHPositivo
+: restituisce i codici dei THS positivi rispetto all'array dei codici ESAMI passati
+: in caso nessuno sia positivo, restituisce 'null'
+:---------------------------------------------------------------------
+define function esisteUnTSHPositivo
+  set arr_id = $parameter_1$
+
+  foreach arr_id as cursor do
+    set valore = Esame(cursor).valore
+    if(valore < 0.5 ) then
+      return( cursor )
+    endif
+  endforeach
+  
+  return('null')
+enddefine
+:---------------------------------------------------------------------
+: dimensioneNoduloMaggiore
+: restituisce il lato maggiore dei noduli censiti in una specifica
+: ecografia tiroidea
+:---------------------------------------------------------------------
+define dimensioneNoduloMaggiore as method of EcoTiroide
+  
+  set arrNoduli = EcoTiroide.IdNoduliAssociati
+  set dimensioneMassima = 0
+  set arrayDimensioni = Tools.arrayNew
+
+  if(arrNoduli !='null') then
+    foreach arrNoduli as cursor do
+      set dap = noduloTiroideo(cursor).fi_ap
+      set dt = noduloTiroideo(cursor).fi_t
+      set dl = noduloTiroideo(cursor).fi_l
+      set arrayDimensioni = Tools.arrayPush(arrayDimensioni,dap)
+      set arrayDimensioni = Tools.arrayPush(arrayDimensioni,dt)
+      set arrayDimensioni = Tools.arrayPush(arrayDimensioni,dl)
+    endforeach
+  endif
+  set dimensioneMassima = Tools.getMax(arrayDimensioni)
+  return(dimensioneMassima)
+enddefine
+
+:**********************************************************************
+: isFNACIndicated
+: LINEA GUIDA PRINCIPALE (main)
+:**********************************************************************
+define isFNACIndicated as method of Paziente
+  
+  # Prendi la prima ECO con censiti dei noduli
+  set hook_US = Paziente.primaEcografiaConNoduli
+  
+  # Verifica che la GL sia applicabile
+  if( hook_US == 'null' ) then
+    writeLog('Q1','GL Non applicabile')
+    return('Non Applicabile')
+  endif
+  
+  # ok, e' applicabile. Ora verifica se c'e' almeno un esame di TSH e Calcitonina a +-3 mesi
+  # dall'eco di 'hook'
+  # prendi la data dell'US di interesse
+  set dataEvento_Hook = Evento(hook_US).dataEvento
+  
+  set dataFrom = Tools.addDaysToDate( dataEvento_Hook, -90 )
+  set dataTo = Tools.addDaysToDate( dataEvento_Hook, +90 )
+  
+  set TSHViciniHook = Paziente(189).hasExamInDateRange('TSH',dataFrom,dataTo)
+  set CalcitonineVicineHook = Paziente(189).hasExamInDateRange('Calcitonina',dataFrom,dataTo)
+  
+  writeLog('LOG','Rilevati noduli in sede di indagine ecografica il ',dataEvento_Hook,'; applico la GL')
+  
+  # se non c'e' il TSH, dai errore
+  if( TSHViciniHook == 'null' ) then
+    writeLog('LOG','ERROR(1): ci sarebbe dovuta essere una rilevazione di TSH a +-90gg dall evento US')
+    writeLog('Q2','ERROR - Missing TSH')
+    return('ERROR(1): ci sarebbe dovuta essere una rilevazione di TSH a +-90gg dall evento US')
+  endif 
+  
+  writeLog('LOG','Trovata rilevazione TSH a +-90 gg dall ecografia come atteso')
+  
+  # se non c'e' la Calcitonina, dai errore
+  if( CalcitonineVicineHook == 'null' ) then
+    writeLog('LOG','ERROR(1): ci sarebbe dovuta essere una rilevazione di Calcitonina a +-90gg dall evento US')
+    writeLog('Q2','ERROR - Missing Calcitonina')  
+    return('ERROR(1): ci sarebbe dovuta essere una rilevazione di Calcitonina a +-90gg dall evento US')
+  endif    
+  
+  writeLog('LOG','Trovata rilevazione Calcitonina a +-90 gg dall ecografia come atteso')
+  
+  # C'e' una calcitonina positiva a +-3 mesi dal trigger?
+  set IDCalcPos = esisteUnaCalcitoninaPositiva(CalcitonineVicineHook)
+  
+  # Se si', verifica che sia stata trattata con FNAC nei tempi opportuni
+  if( IDCalcPos!='null' ) then
+    # verifica se c'e' una FNAC a -150,+60gg dalla prima calcitonina trovata positiva
+    set dataPrimaCalcitoninaPositiva = Esame(IDCalcPos).data
+    set codiciFNAC = Paziente.esisteEventoClinicoNelRangeDiDate('Agoaspirato',-150,dataPrimaCalcitoninaPositiva,60)
+    
+    # Ci sarebbe dovuta essere una FNAC
+    if( codiciFNAC == 'null' ) then
+      return('ERRORE(2): ci sarebbe dovuta essere una FNAC a -150,+60gg dalla rilevazione della calcitonina')
+    endif
+    
+    return('OK(2): rilevata la FNAC a -150,+60gg dalla rilevazione della calcitonina')
+    
+  endif
+  
+  # Prendi la dimensione massima dei noduli censiti in sede di ECO 'trigger'
+  set dimensioneMassimaNodulo = EcoTiroide(hook_US).dimensioneNoduloMaggiore
+  
+  # Verifica ora se l'indagine di trigger un nodulo > 1mm
+  if( dimensioneMassimaNodulo > 10 ) then
+  
+    # Verifica se c'e' un TSH a -10,+90gg a partire dal TRIGGER.
+    set IDTSHPositivo = esisteUnTSHPositivo(TSHViciniHook)
+    
+    # C'e': abbiamo una FNAC?
+    if( IDTSHPositivo != 'null' ) then
+      # verifica se c'e' una FNAC a -150,+60gg dalla prima calcitonina trovata positiva
+      set dataPrimoTSHPositivo = Esame(IDTSHPositivo).data
+      set codiciFNAC = Paziente.esisteEventoClinicoNelRangeDiDate('Agoaspirato',-150,dataPrimoTSHPositivo,90)
+      
+      # Ci sarebbe dovuta essere una FNAC
+      if( codiciFNAC == 'null' ) then
+        return('ERRORE(3): ci sarebbe dovuta essere una FNAC a -150,+90gg dalla rilevazione della TSH minore di 0.5')
+      endif
+      
+      # se no, significa che tutto ok
+      return('OK: rilevata la FNAC a -150,+90gg dalla rilevazione del TSH positivo')          
+      
+    endif
+    
+    # Nel caso in cui non ci sia TSH positivo, vediamo se ha fatto una SCINTI
+    set dataFrom = Tools.addDaysToDate( dataEvento_Hook, -90 )
+    set dataTo = Tools.addDaysToDate( dataEvento_Hook, +90 )    
+    set codiceEventoScinti = Paziente.EventoClinicoDiTerzePartiFraDate('SCINTIGRAFIA',dataFrom,dataTo)
+    
+    if( codiceEventoScinti == 'null' ) then
+      return('ERRORE(4): era indicata una scintigrafia a -+90 giorni dalla ecografia')          
+    endif
+    
+    # ok, la SCINTI c'e', ma il nodulo risulta iso o ipocaptante?
+    set statoNodulo = Evento(codiceEventoScinti).statoLinfonodoAllaScintigrafia
+    
+    if( statoNodulo == 'null' ) then
+      return('ERRORE(?) Lo stato del nodulo non e stato censito')
+    endif
+    if( statoNodulo != 1) then
+      return('OK(?) Percorso corretto: auspichiamo che il paziente sia andato a Terapia senza FNAC')
+    endif
+    
+    # Prendi la data della SCINTIGRAFIA
+    set dataScintigrafia = Evento(codiceEventoScinti).dataEvento
+    
+    # E verifica se c'e' o meno una FNAC a +-90 giorni dalla SCINTI
+    set dataFNACviciniSCINTI = Paziente.esisteEventoClinicoNelRangeDiDate('Agoaspirato',-150,dataScintigrafia,90)
+    if(dataFNACviciniSCINTI == 'null' ) then
+      return('ERROR(5): ci sarebbe dovuta essere una FNAC a +-90gg dalla scinti')
+    else
+      return('OK(5)')
+    endif
+  endif
+  
+  # Se sono qui c'e' almeno un nodulo ma quello piu' grande non supera il mm di diamtro massimo
+  # Ora vediamo: ci sono piu' noduli?
+  set arrNoduli = noduloTiroideo.relatedToClinicalEvent(hook_US)
+  set numeroNoduli = Tools.arrayLength(arrNoduli)
+  
+  # Se c'e' solo UN NODULO
+  if(numeroNoduli == 1) then
+  
+    # Verifica se c'e' un TSH a -10,+90gg a partire dal TRIGGER.
+    set IDTSHPositivo = esisteUnTSHPositivo(TSHViciniHook)
+    
+    # Se c'e': abbiamo una SCINTIGRAFIA?
+    if( IDTSHPositivo != 'null' ) then
+      set dataFrom = Tools.addDaysToDate( dataEvento_Hook, -90 )
+      set dataTo = Tools.addDaysToDate( dataEvento_Hook, +90 )    
+      set codiceEventoScinti = Paziente.EventoClinicoDiTerzePartiFraDate('SCINTIGRAFIA',dataFrom,dataTo)
+      
+      if( codiceEventoScinti == 'null' ) then
+        return('ERRORE(7): era indicata una scintigrafia a -+90 giorni dalla ecografia')          
+      endif
+      
+      # ok, la SCINTI c'e', ma il nodulo risulta iso o ipocaptante?
+      set statoNodulo = Evento(codiceEventoScinti).statoLinfonodoAllaScintigrafia 
+      
+      if( statoNodulo == 'null' ) then
+        return('ERRORE(?) Lo stato del nodulo non e stato censito')
+      endif
+      if( statoNodulo != 1) then
+        return('OK(9) Percorso corretto: auspichiamo che il paziente sia andato a Terapia senza FNAC')
+      endif  
+      
+      # Prendi la data della SCINTIGRAFIA
+      set dataScintigrafia = Evento(codiceEventoScinti).dataEvento
+      
+      # E verifica se c'e' o meno una FNAC a +-90 giorni dalla SCINTI
+      set dataFNACviciniSCINTI = Paziente.esisteEventoClinicoNelRangeDiDate('Agoaspirato',-150,dataScintigrafia,90)
+      if(dataFNACviciniSCINTI == 'null' ) then
+        return('ERROR(8): ci sarebbe dovuta essere una FNAC a +-90gg dalla scinti')
+      else
+        return('OK(8)')
+      endif      
+    endif   
+      
+    # C'e' una storia di esposizione a radiazioni ionizzanti?
+    set codiceEsposizione = Paziente.esposizioneRadiazioniIonizzanti
+    
+    # C'e' stata  !
+    if(codiceEsposizione != 'null' ) then
+      # E verifica se c'e' o meno una FNAC a +-90 giorni dalla data dell'ECO trigger
+      set dataFNAC = Paziente.esisteEventoClinicoNelRangeDiDate('Agoaspirato',-90,dataEvento_Hook,90)
+      if(dataFNAC == 'null') then
+        return('ERROR(11): sarebbe indicata una FNAC a +-30 giorni dalla indagine ECO')
+      else
+        return('OK(11)')
+      endif
+    endif
+    
+    # Non c'e' stata esposizione a Radiazioni ionizzanti
+    
+    return('verifica se ci sono almeno due aspetti ecografici di malignita')      
+    
+  endif
+  
+  # OK, SE SONO QUI SIGNIFICA CHE CI SONO PIU' NODULI
+  
+  # C'e' una storia di esposizione a radiazioni ionizzanti?
+  set codiceEsposizione = Paziente.esposizioneRadiazioniIonizzanti
+
+  # C'e' stata  !
+  if(codiceEsposizione != 'null' ) then
+    # E verifica se c'e' o meno una FNAC a +-90 giorni dalla data dell'ECO trigger
+    set dataFNAC = Paziente.esisteEventoClinicoNelRangeDiDate('Agoaspirato',-90,dataEvento_Hook,90)
+    if(dataFNAC == 'null') then
+      return('ERROR(13): sarebbe indicata una FNAC a +-30 giorni dalla indagine ECO')
+    else
+      return('OK(13)')
+    endif
+  endif  
+  
+  # C'e' una SCINTIGRAFIA a +-90 giorni dall'indagine ECO?
+  
+  set dataFrom = Tools.addDaysToDate( dataEvento_Hook, -90 )
+  set dataTo = Tools.addDaysToDate( dataEvento_Hook, +90 )    
+  set codiceEventoScinti = Paziente.EventoClinicoDiTerzePartiFraDate('SCINTIGRAFIA',dataFrom,dataTo)
+  if(dataFNACviciniSCINTI == 'null' ) then
+    return('ERROR(14): ci sarebbe dovuta essere una SCINTI a +-90gg dalla indagine ECO')
+  else
+    return('OK(14): Serve una FNAC basata su criteri scintigrafici')
+  endif      
+
+  return('ERORRE: non dovrei essere qui')
+
+enddefine
+

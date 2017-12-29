@@ -12,6 +12,10 @@ Ste.tool.class <- function( ) {
   
   passed.parameters <- list()
   passed.string <- NA
+  # global.LLL.env<-NA
+  global.mem.struct<-NA
+  global.null.value<-NA
+  # global.mem.struct$class.methods<-NA
   
   # ===============================================================================
   # PROXY
@@ -24,12 +28,27 @@ Ste.tool.class <- function( ) {
     passed.parameters <<- lst.parametri
     passed.string <<- stringa
     
-    if(stringa=="today") {
-      valToRet <- as.character(Sys.Date())
-      return( list("value"=valToRet , "error"=FALSE , "type" = "date"))
+    if(stringa=="arrayNew") {
+      return( arrayNew() )
+    }    
+    if(stringa=="arrayPush") {
+      return( arrayPush() )
+    }    
+    if(stringa=="getMax") {
+      return( getMax() )
+    }        
+    if(stringa=="arrayLength") {
+      return( arrayLength() )
     }
     if(stringa=="getDeltaDays") {
       return( getDeltaDays() )
+    }    
+    if(stringa=="addDaysToDate") {
+      return( addDaysToDate() )
+    }        
+    if(stringa=="today") {
+      valToRet <- as.character(Sys.Date())
+      return( list("value"=valToRet , "error"=FALSE , "type" = "date"))
     }    
     stop("\n Syntax error in invocking a Tools'method")
   }
@@ -48,6 +67,67 @@ Ste.tool.class <- function( ) {
     }
   }
   # ===============================================================================
+  # arrayLength
+  # Restituisci il numero di elementi di un array
+  # ===============================================================================  
+  arrayLength<-function() {
+    # browser()
+    checkParameters(1)
+    quantiElementi <- length(passed.parameters[[1]]$value)
+    return( list("value"=quantiElementi , "error"=FALSE , "type" = ""))
+  }   
+  # ===============================================================================
+  # arrayNew
+  # Crea un array del tipo specificato
+  # ===============================================================================  
+  arrayNew<-function() {
+    # browser()
+    checkParameters(0)
+    return( list("value"=c() , "error"=FALSE , "type" = ""))
+  }  
+  # ===============================================================================
+  # arrayNew
+  # Crea un array del tipo specificato
+  # ===============================================================================  
+  arrayPush<-function() {
+    checkParameters(2)
+    # Togli l'eventuale valore "null"
+    listaValoriNonNull <- passed.parameters[[1]]$value[ which(passed.parameters[[1]]$value!=global.null.value)]
+    # ed accoda
+    listaValoriNonNull <- c(listaValoriNonNull,passed.parameters[[2]]$value)
+    # poi ritorna
+    return( list("value"=listaValoriNonNull , "error"=FALSE , "type" = ""))
+  }   
+  # ===============================================================================
+  # getMax
+  # Crea un array del tipo specificato
+  # ===============================================================================  
+  getMax<-function() {
+    checkParameters(1)
+    nuovoArray <- cast.to.numeric.array(passed.parameters[[1]]$value)
+    if(length(nuovoArray)==0) massimo <- global.null.value
+    else  massimo <- max(nuovoArray)
+    # poi ritorna
+    return( list("value"=massimo , "error"=FALSE , "type" = ""))
+  }    
+  # ===============================================================================
+  # addDaysToDate
+  # aggiungi TOT giorni ad una certa data
+  # ===============================================================================  
+  addDaysToDate<-function() {
+    # browser()
+    checkParameters(2)
+    
+    d.1 <- can.it.be.a.date( passed.parameters[[1]]$value ) 
+    if(d.1$can.be.a.date!=TRUE) stop("Errore: il primo campo passato non e' una data")
+    if(is.numeric(passed.parameters[[2]]$value)!=TRUE) stop("Errore: il secondo campo passato non e' un intero")
+
+    dataFrom <- as.POSIXct(passed.parameters[[1]]$value, format = d.1$data.format)
+    dataCalcolata <- dataFrom + passed.parameters[[2]]$value *24*60*60
+    dataCalcolata <- as.character(format( dataCalcolata, format= d.1$data.format))
+    return( list("value"=dataCalcolata , "error"=FALSE , "type" = "string"))
+  }
+  # ===============================================================================
   # getDeltaDays
   # calcola quanti giorni ci sono di distanz fra due date
   # ===============================================================================  
@@ -64,16 +144,29 @@ Ste.tool.class <- function( ) {
     delta.Date <- as.numeric(difftime(as.POSIXct(passed.parameters[[1]]$value, format = d.1$data.format),as.POSIXct(passed.parameters[[2]]$value, format = d.2$data.format),  units = 'days'))
     return( list("value"=delta.Date , "error"=FALSE , "type" = "numeric"))
   }
+  # ----------------------------------------------------------------
+  # setEnv
+  # Setta il contesto, attivita' FACOLTATIVA, nel caso di TOOLS
+  # ----------------------------------------------------------------
+  setEnv<-function(  mem = list() , null.value = NA) {
+    # if(length(env)>0) global.LLL.env <<- env
+    if(length(mem)>0) global.mem.struct <<- mem
+    if(!is.na(null.value)>0) global.null.value <<- null.value
+    # if(length(classMethods)>0) global.mem.struct$class.methods <<- classMethods
+  }  
   # -------------------------------------------------
   # costruttore
   # -------------------------------------------------
   constructor <- function() {
     passed.parameters <<- list()
     passed.string <<- NA
+    global.mem.struct<<-list()
+    global.null.value<<-"null"
   }
   constructor()
   # -------------------------------------------------
   return(list(
-    "proxy"=proxy
+    "proxy"=proxy,
+    "setEnv"=setEnv
   ))
 }

@@ -306,13 +306,15 @@ LLL <- function( debug.mode = FALSE ) {
       if(!is.na(id))  { 
         q <- str_replace_all(string = q,pattern = "\\$primary.key\\$",as.character(id))
       }
-      # browser()
+      # if(relation.name == "hasClinicalEventInDateRange") browser()
       if(length(lst.argomenti)>0) { 
         for(i in seq(1,length(lst.argomenti))) {
-          if(is.a.quoted.string(lst.argomenti[[i]]$value)==TRUE)
+          if(is.a.quoted.string(lst.argomenti[[i]]$value)==TRUE) { 
             q <- str_replace_all(string = q,pattern = str_c("\\$parameter_",i,"\\$"),togli.apici.esterni.stringa(lst.argomenti[[i]]$value))
-          else
-            q <- str_replace_all(string = q,pattern = str_c("\\$parameter_",i,"\\$"),lst.argomenti[[i]]$value)
+          }
+          else { 
+            q <- str_replace_all(string = q,pattern = str_c("\\$parameter_",i,"\\$"),as.character(lst.argomenti[[i]]$value))
+          }
         }
       }
 

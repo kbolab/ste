@@ -21,7 +21,22 @@ define CLASS Esame
   attribute idPaziente = _A02_C_ANAGRAFICA
   attribute idEvento = _A03_C_CRONOLOGICA
   attribute descrizione = SQL{ SELECT _T15_ESAME FROM _T15_ESAMI, _A12_ESAMI WHERE _A12_ESAMI._T15_C_ESAME = _T15_ESAMI._T15_COD_ESAME AND _A12_ESAMI._A12_COD_ESAME='$primary.key$' }
+  attribute data = SQL{ SELECT _A03_DATA_EVENTO_CRONOLOGICA FROM _A03_CRONOLOGICA, _A12_ESAMI WHERE _A12_ESAMI._A03_C_CRONOLOGICA=_A03_CRONOLOGICA._A03_COD_CRONOLOGICA AND _A12_ESAMI._A12_COD_ESAME='$primary.key$' }
   attribute valore = _A12_ESITO_ESAME
+enddefine
+
+define CLASS noduloTiroideo
+  link.name = mainDB
+  table.name = _A10_ECO_NODULI
+  primary.key = _A10_COD_ECO_NODULI
+  attribute cEventoClinico =	_A03_C_CRONOLOGICA
+  attribute ecogenicita =	_A10_ECOGENICITA
+  attribute microcalcificazione =	_A10_MICROCALCIFICAZIONE
+  attribute margini = _A10_MARGINI
+  attribute vascolarizzazione = _A10_VASCOLARIZZAZIONE
+  attribute fi_ap = _A10_FI_AP
+  attribute fi_t = _A10_FI_T
+  attribute fi_l = _A10_FI_L
 enddefine
 
 define RELATION hasDetails
@@ -34,7 +49,13 @@ define RELATION linkEventoEsami
   query = SQL{ SELECT _A12_COD_ESAME FROM _A12_ESAMI, _A03_CRONOLOGICA WHERE _A03_COD_CRONOLOGICA='$primary.key$' AND _A03_COD_CRONOLOGICA = _A03_C_CRONOLOGICA AND _A03_VALIDO='1'  } 
 enddefine
 
+
 define RELATION engaged_in
   master = Paziente
   query = SQL{ SELECT _A02_COD_ANAGRAFICA FROM _A02_ANAGRAFICA WHERE  _A02_CC_STUDIO_V2 like '%-6-%' AND _A02_VALIDO = '1' ORDER BY _A02_COD_ANAGRAFICA ASC} 
+enddefine
+
+define RELATION relatedToClinicalEvent
+  master = noduloTiroideo
+  query = SQL{ SELECT _A10_COD_ECO_NODULI FROM _A10_ECO_NODULI WHERE _A03_C_CRONOLOGICA='$parameter_1$'  }
 enddefine

@@ -47,12 +47,9 @@ enddefine
 define isPDV as method of Paziente
 
   set threshold = $parameter_1$
-
   set ultimaData = Paziente.getLastEvent
   set dataOdierna = Tools.today
-  
   set PDVFromDays = Tools.getDeltaDays( dataOdierna , ultimaData )
-  
   if( PDVFromDays > threshold ) then
     set stato_paziente = 'PDV'
   else

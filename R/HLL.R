@@ -90,7 +90,8 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
     #   global.executed.statements <<- global.executed.statements + 1
     # }
     # # DEBUGGER -fm
-    
+    # if(stringa=="set deltaInferioreGiorni = $parameter_2$") browser()
+    # browser()
     # Crea un oggetto HLL
     obj.HLL<-HLL( debug.mode = global.debug.mode , deep.level = (global.deep.level+1) , 
                   executed.statements = global.executed.statements, max.debug.deep = global.max.debug.deep,
@@ -101,8 +102,100 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
     # Esegue il corrispettivo di una sola riga
     # browser()
     res <- obj.HLL$execute( script = HLL.script )
+    # DEBUGGER -im (new)
+    if(global.debug.mode==TRUE & global.deep.level <= global.max.debug.deep  ) {
+      global.executed.statements <<- obj.HLL$getAttribute(attributo = "executed.statements")
+    }
+    # DEBUGGER -fm (new)
     # restituisci il risultato
     return(res)
+  }
+  # ---------------------------------------------------------------
+  # risolvi.writeLog
+  # Write di un LOG
+  # ---------------------------------------------------------------  
+  risolvi.writeLog<-function( lst.argomenti = list() ) {
+    # browser()
+    if(lst.argomenti[[1]]$type$tipo.variabile.restituita!="quoted.string") stop("ERRORE: il primo parametro deve essere la stringa che indica la coda in cui salvare il log")
+    coda <- togli.apici.esterni.stringa(lst.argomenti[[1]]$value)
+    quanti.in.coda <- length(mem.struct$logQueue[[as.character(coda)]])
+    mem.struct$logQueue[[as.character(coda)]][[quanti.in.coda+1]] <<-lst.argomenti[2:length(lst.argomenti)]
+  }  
+  # ---------------------------------------------------------------
+  # risolvi.funzione.HLL
+  # Risolve ricorsivamente una funzione
+  # deve gestire lo scoping delle variabili
+  # ---------------------------------------------------------------  
+  risolvi.funzione.HLL<-function( nome.funzione, lst.argomenti = list() ) {
+    # setta l'environment
+    
+    if(nome.funzione=="writeLog") { 
+      risolvi.writeLog( lst.argomenti = lst.argomenti )
+      return(list( "valore"=NA, "operation.token" = "writeLog", "operation"="writeLog(...)"))
+    }
+    
+    # devi passare LLL ed eventuali metodi definiti in HLL, NON le variabili
+    tmp.mem.struct <- mem.struct
+    tmp.mem.struct$var<-list()
+    tmp.mem.struct$define.context<-list()
+    tmp.mem.struct$implicit.PK<-NA
+    tmp.mem.struct$lst.parameters<-list()
+    tmp.mem.struct$functions<-list()
+    tmp.mem.struct$logQueue<-list()
+# browser()
+    # Crea un oggetto HLL
+    obj.HLL<-HLL( debug.mode = global.debug.mode, deep.level = (global.deep.level+1),
+                  executed.statements = global.executed.statements, max.debug.deep = global.max.debug.deep, 
+                  arr.breakpoints = global.arr.breakpoints )    
+    
+    HLL.script <-  mem.struct$functions[[nome.funzione]]$script
+    HLL.script <- HLL.script[ 2: (length(HLL.script)-1) ]
+    HLL.script <- paste(HLL.script, collapse = "\n")   
+    
+    # Non c'e' NESSUNA Pk implicita! definisci solo la 'running function'
+    tmp.mem.struct$running.function<-nome.funzione
+    tmp.mem.struct$running.class<-c()
+    tmp.mem.struct$running.method<-c()
+    tmp.mem.struct$functions <- mem.struct$functions
+    # Aggiusta il contenuto della lista parametri in maniera da renderla conforme a come
+    # verra' poi analizzata'
+    # browser()
+    for( i in seq(1,length(lst.argomenti))) {
+      aaa <- definisci.tipo.variabile(risultatoElemento = lst.argomenti[[i]]$value)
+      lst.argomenti[[i]]$type <- aaa
+    }
+    tmp.mem.struct$lst.parameters <- lst.argomenti
+    
+    # DEBUGGER -im -less important
+    if(global.debug.mode==TRUE & global.deep.level <= global.max.debug.deep  ) {
+      cat(paste(c("\n#",global.executed.statements,"CALL - Function : ",nome.funzione),collapse = ' '))
+      if( global.executed.statements %in% global.arr.breakpoints ) handle.debug.console.GUI()      
+      global.executed.statements <<- global.executed.statements + 1
+    }
+    # DEBUGGER -fm
+    
+    # browser()
+    # # SETTA I PARAMETRI, PASSANDOLI COME VARIABILI NEL NUOVO ENV
+    # for( i in seq(1,length(lst.argomenti))) {
+    #   tmp.mem.struct$var[[  paste(c("$parameter_",i,"$"),collapse='') ]]<-lst.argomenti[[i]]
+    # }
+        # browser()
+    # Fai il push dell'ENV
+    obj.HLL$setEnv( env = LLL.env , mem = tmp.mem.struct )
+    # Fai il parse dello script
+    res <- obj.HLL$parseScript( script = HLL.script )
+    
+    # DEBUGGER -im -less important  
+    if(global.debug.mode==TRUE & global.deep.level <= global.max.debug.deep  ) {
+      global.executed.statements <<- obj.HLL$getAttribute(attributo = "executed.statements")
+      cat(paste(c("\n#",global.executed.statements,"BACK - Function :",nome.funzione),collapse = ' '))
+      if( global.executed.statements %in% global.arr.breakpoints ) handle.debug.console.GUI()      
+      # global.executed.statements <<- global.executed.statements + 1
+    }
+    # DEBUGGER -fm    
+    
+    # restituisci il risultato
+    return(res)    
   }
   # ---------------------------------------------------------------
   # risolvi.metodo.HLL
@@ -118,9 +211,11 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
     tmp.mem.struct$define.context<-list()
     tmp.mem.struct$implicit.PK<-NA
     tmp.mem.struct$lst.parameters<-list()
+    tmp.mem.struct$logQueue<-list()
     # browser()
     # Crea un oggetto HLL
     # obj.HLL<-HLL()
+    # browser()
     obj.HLL<-HLL( debug.mode = global.debug.mode, deep.level = (global.deep.level+1),
                   executed.statements = global.executed.statements, max.debug.deep = global.max.debug.deep, 
                   arr.breakpoints = global.arr.breakpoints )
@@ -133,6 +228,7 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
     tmp.mem.struct$implicit.PK<-implicit.PK
     tmp.mem.struct$running.class<-classe
     tmp.mem.struct$running.method<-metodo
+    tmp.mem.struct$running.function<-c()    
     tmp.mem.struct$lst.parameters<-lst.argomenti
 
     # DEBUGGER -im -less important
@@ -152,15 +248,18 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
     # Fai il parse dello script
     res <- obj.HLL$parseScript( script = HLL.script )
     
+    if(global.deep.level==1) mem.struct$logQueue <<- obj.HLL$getAttribute(attributo = "logQueue")
+    
     # DEBUGGER -im -less important
     # browser()
     if(global.debug.mode==TRUE & global.deep.level <= global.max.debug.deep  ) {
+      global.executed.statements <<- obj.HLL$getAttribute(attributo = "executed.statements")
       if(is.na(script))
         cat(paste(c("\n#",global.executed.statements,"BACK - HLL::",classe,"::",metodo),collapse = ' '))
       else
         cat(paste(c("\n#",global.executed.statements,"BACK - HLL::",script),collapse = ' '))
       if( global.executed.statements %in% global.arr.breakpoints ) handle.debug.console.GUI()      
-      global.executed.statements <<- global.executed.statements + 1
+      # global.executed.statements <<- global.executed.statements + 1
     }
     # DEBUGGER -fm    
     
@@ -196,26 +295,47 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
   # proxy.mem.contesto.set
   # proxy per il SET del contesto in memoria
   # ---------------------------------------------------------------
-  proxy.mem.contesto.set<-function( method.name=NA, class.name=NA , destroy.contest = FALSE) {
+  proxy.mem.contesto.set<-function( method.name=NA, class.name=NA , destroy.contest = FALSE, nome.funzione=NA) {
     # Se devi distruggere il contesto, non perdere tempo!
+    # browser()
     if(destroy.contest==TRUE ) {
-
       # prima di chiudere il contesto, fai il parsing di quanto fino ad ora accumulato.
       # Considera che lo script e' gia' stato aggiundo dagli "addline"
-      method.name <- mem.struct$define.context$method.name
-      class.name <- mem.struct$define.context$class.name
-      mem.struct$class.methods[[class.name]][[method.name]]$struttura <<- preProcessing.Script( script.lines = mem.struct$define.context$script )
-      mem.struct$define.context <<- list()
+      # Se e' un METODO    
+      if(!("function.name" %in% names(mem.struct$define.context))) { 
+        method.name <- mem.struct$define.context$method.name
+        class.name <- mem.struct$define.context$class.name
+        mem.struct$class.methods[[class.name]][[method.name]]$struttura <<- preProcessing.Script( script.lines = mem.struct$define.context$script )
+        mem.struct$define.context <<- list()
+      } else {
+      # Se invece e' una FUNZIONE
+        function.name <- mem.struct$define.context$function.name
+        mem.struct$functions[[function.name]]$struttura <<- preProcessing.Script( script.lines = mem.struct$define.context$script )
+        mem.struct$define.context <<- list()
+      }
       return()
     }
     # se no, continua...
-    mem.struct$define.context$method.name <<- method.name
-    mem.struct$define.context$class.name <<- class.name
-    mem.struct$define.context$script <<- c()
-    
-    if(!("class.methods" %in% names(mem.struct))) mem.struct$class.methods<<-list()
-    if(! ( class.name %in% names(mem.struct$class.methods) ) ) mem.struct$class.methods[[class.name]]<<-list()
-    if(!(method.name %in% names(mem.struct$class.methods[[class.name]]))) mem.struct$class.methods[[class.name]][[method.name]]<<-list("script"=c(),"struttura"=c())
+    # Se e' un METODO'
+    if(is.na(nome.funzione)) { 
+      mem.struct$define.context$method.name <<- method.name
+      mem.struct$define.context$class.name <<- class.name
+      mem.struct$define.context$script <<- c()
+      
+      if(!("class.methods" %in% names(mem.struct))) mem.struct$class.methods<<-list()
+      if(! ( class.name %in% names(mem.struct$class.methods) ) ) mem.struct$class.methods[[class.name]]<<-list()
+      if(!(method.name %in% names(mem.struct$class.methods[[class.name]]))) mem.struct$class.methods[[class.name]][[method.name]]<<-list("script"=c(),"struttura"=c())
+      
+    } else {
+    # Se e' una FUNZIONE
+      mem.struct$define.context$function.name <<- nome.funzione
+      mem.struct$define.context$script <<- c()
+      # browser()      
+      if(!("functions" %in% names(mem.struct))) mem.struct$functions<<-list()
+      if(!(nome.funzione %in% names(mem.struct$functions))) mem.struct$functions[[nome.funzione]]<<-list("script"=c(),"struttura"=c())
+      
+    }
+
   }
   # ---------------------------------------------------------------
   # proxy.mem.contesto.addLine
@@ -223,10 +343,19 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
   # ---------------------------------------------------------------
   proxy.mem.contesto.addLine<-function(  stringa ) {
     if( length(mem.struct$define.context)==0 ) stop("\n errore, non e' stato definito alcun contesto in cui copiare le righe")
-    mem.struct$define.context$script <<- c( mem.struct$define.context$script , stringa)
-    class.name <- mem.struct$define.context$class.name
-    method.name <- mem.struct$define.context$method.name
-    mem.struct$class.methods[[class.name]][[method.name]]$script <<- c(mem.struct$class.methods[[class.name]][[method.name]]$script,stringa)
+    # Se stai definendo un metodo
+    if(!("function.name" %in% names(mem.struct$define.context))) { 
+      mem.struct$define.context$script <<- c( mem.struct$define.context$script , stringa)
+      class.name <- mem.struct$define.context$class.name
+      method.name <- mem.struct$define.context$method.name
+      mem.struct$class.methods[[class.name]][[method.name]]$script <<- c(mem.struct$class.methods[[class.name]][[method.name]]$script,stringa)
+    } else {
+      # Se invece stai definendo una funzione
+      # browser()
+      mem.struct$define.context$script <<- c( mem.struct$define.context$script , stringa)
+      function.name <- mem.struct$define.context$function.name
+      mem.struct$functions[[function.name]]$script <<- c(mem.struct$functions[[function.name]]$script,stringa)
+    }
   }
   # ---------------------------------------------------------------
   # execute
@@ -244,6 +373,7 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
     res["obj.with.parameters"]<- str_extract(string = stringa, pattern = "^[ ]*^[a-zA-Z _]+(\\(.*\\))*\\.[a-zA-Z _]+\\(.*\\)$")    
     res["return"]<- str_extract(string = stringa, pattern = "^[ ]*return\\(.*\\)[ ]*$")
     res["define"]<- str_extract(string = stringa, pattern = "^[ ]*define[ ]+[a-zA-Z0-9_]+[ ]+as[ ]+method[ ]+of[ ]+[a-zA-Z0-9_]+[ ]*$")
+    res["define.function"]<- str_extract(string = stringa, pattern = "^[ ]*define[ ]+function[ ]+[a-zA-Z0-9_]+[ ]*$")
     res["enddefine"]<- str_extract(string = stringa, pattern = "^[ ]*enddefine[ ]*$")
     res["str_cat"]<- str_extract(string = stringa, pattern = "^[ ]*str_cat\\(.*\\)[ ]*$")
     res["if"]<- str_extract(string = stringa, pattern = "^[ ]*if[ ]*\\(.*\\)[ ]*then[ ]*$")
@@ -251,17 +381,23 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
     res["endif"]<- str_extract(string = stringa, pattern = "^[ ]*endif[ ]*$")
     res["foreach"]<- str_extract(string = stringa, pattern = "^[ ]*foreach[ ]*([a-zA-Z]+[a-zA-Z0-9_]*)[ ]+as[ ]+([a-zA-Z]+[a-zA-Z0-9_]*)[ ]*do[ ]*$")
     res["endforeach"]<- str_extract(string = stringa, pattern = "^[ ]*endforeach[ ]*$")
+    res["function.call"]<- str_extract(string = stringa, pattern = "^[ ]*^[a-zA-Z]+[a-zA-Z_0-9]*\\(.*\\)$")
+    # res["writeLog"]<- str_extract(string = stringa, pattern = "^[ ]*writeLog\\(.*\\)$")        
+    # browser()
+    # if(stringa=="set deltaInferioreGiorni = $parameter_2$") browser()
+    
+    # if( global.executed.statements==9  ) browser()
     
     #  SET
     if(!is.na(res["set"]) & match.trovato == FALSE) {
       toReturn <- risolvi.set( stringa , script.cursor = script.cursor )
       match.trovato <- TRUE
     }
-     if(!is.na(res["obj.with.parameters"]) & match.trovato == FALSE) {
-       res["obj"] <- NA; res["obj.implicit.PK"] <- NA;
-       toReturn <- risolvi.accessoAMetodo.con.parametri( stringa, res )
-       match.trovato <- TRUE
-     }     
+    if(!is.na(res["obj.with.parameters"]) & match.trovato == FALSE) {
+      res["obj"] <- NA; res["obj.implicit.PK"] <- NA;
+      toReturn <- risolvi.accessoAMetodo.con.parametri( stringa, res )
+      match.trovato <- TRUE
+    }     
     # Se e' un' accesso ad un oggetto
     if( (!is.na(res["obj"]) | !is.na(res["obj.implicit.PK"])) & match.trovato == FALSE ) {
       toReturn <- risolvi.accessoAMetodo( stringa, res )
@@ -278,6 +414,11 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
       toReturn <- risolvi.define( stringa )
       match.trovato <- TRUE
     }
+    # DEFINE
+    if(!is.na(res["define.function"]) & match.trovato == FALSE) {
+      toReturn <- risolvi.define.function( stringa )
+      match.trovato <- TRUE
+    }    
     #  ENDDEFINE
     if(!is.na(res["enddefine"]) & match.trovato == FALSE) {
       stop("\n errore, qui ci dovrei arrivare solo senza un contesto aperto... (e se sono qui vuol dire che non ci sono contesti aperti)")
@@ -310,6 +451,17 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
     #  ENDFOREACH
     if(!is.na(res["endforeach"]) & match.trovato == FALSE) {
       toReturn <- risolvi.endforeach( stringa, complete.script = complete.script , script.cursor = script.cursor)
+      match.trovato <- TRUE
+    } 
+    # #  FUNCTION writeLog
+    # if(!is.na(res["writeLog"]) & match.trovato == FALSE) {
+    #   toReturn <- risolvi.writeLog( stringa, complete.script = complete.script , script.cursor = script.cursor)
+    #   browser()
+    #   match.trovato <- TRUE
+    # }           
+    #  FUNCTION CALL
+    if(!is.na(res["function.call"]) & match.trovato == FALSE) {
+      toReturn <- risolvi.function.call( stringa, complete.script = complete.script , script.cursor = script.cursor)
       match.trovato <- TRUE
     }       
     
@@ -386,7 +538,15 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
   risolvi.endforeach<-function( stringa , complete.script , script.cursor  ) {
     runningClass <- mem.struct$running.class
     runningMethod <- mem.struct$running.method
-    matrice <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$foreach$matrice
+    runningFunction <- mem.struct$running.function
+    
+    if( !is.null(runningClass) & !is.null(runningMethod) ) { 
+      matrice <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$foreach$matrice
+    }    
+    if( !is.null(runningFunction) )  {
+      matrice <- mem.struct$functions[[runningFunction]]$struttura$foreach$matrice
+    }    
+    
     riga.di.interesse <- matrice[ which(matrice[,"riga"]==as.character(script.cursor)), ]
     
     cursore <- riga.di.interesse["cursore"]
@@ -409,10 +569,21 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
   # FOREACH
   # ----------------------------------------------------   
   risolvi.foreach<-function( stringa , complete.script , script.cursor  ) {
-
+    # if(stringa=="foreach arr_id as cursor do") browser()
     runningClass <- mem.struct$running.class
     runningMethod <- mem.struct$running.method
-    matrice <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$foreach$matrice
+    runningFunction <- mem.struct$running.function
+    # Prendi la matrice della strutture dei FOREACH in funzione che sia un METODO o una FUNZIONE
+    # (quella che sta correndo ora)
+    if( !is.null(runningClass) & !is.null(runningMethod) ) {
+      matrice <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$foreach$matrice
+    }
+    if( !is.null(runningFunction) )  {
+      # browser()
+      matrice <- mem.struct$functions[[runningFunction]]$struttura$foreach$matrice
+    }
+      
+    # matrice <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$foreach$matrice
     riga.di.interesse <- matrice[ which(matrice[,"riga"]==as.character(script.cursor)), ]
 
     cursore <- riga.di.interesse["cursore"]
@@ -432,7 +603,7 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
                                                                    "cursorIndexPos"=0,
                                                                    "cursorName"=cursore)
     }
-
+# browser()
     # Prendi i dati dell'array (in prima battuta vedi solo se esiste nelle variabili in memoria)
     if( !(arr2run %in% names(mem.struct$var))) {
       stop("\n ERRORE, l'array per il FOREACH non e' presente fra le variabili dichiarate")
@@ -440,7 +611,7 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
     # Spiana il cursore, anche se gia' esiste nello spazion delle variabili: RUSPA!
     # (intanto mettici dentro la cosa piu' simile al 'NULL' che conosca)
     mem.struct$var[[cursore]] <<- list( "type" = "NULL", "value" = global.null.value )
-    
+    # if(stringa=="foreach arr_id as cursor do") browser()
     # Verifica la condizione per capire che fare
     # L'array ha almeno un elemento? E' diverso dal global.null.value?
     if(mem.struct$var[[arr2run]]$type=="NULL") {
@@ -508,8 +679,14 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
     
     runningClass <- mem.struct$running.class
     runningMethod <- mem.struct$running.method
+    runningFunction <- mem.struct$running.function
     
-    arr.endif <- unlist(lapply(mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif, function(x){ x$riga.endif } ))
+    if(!is.null(runningClass) & !is.null(runningMethod)) {  
+      arr.endif <- unlist(lapply(mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif, function(x){ x$riga.endif } ))
+    }
+    if(!is.null(runningFunction)) { 
+      arr.endif <- unlist(lapply(mem.struct$functions[[runningFunction]]$struttura$if.else.endif, function(x){ x$riga.endif } ))
+    }    
 
     quale_posizione <- which( arr.endif == script.cursor,arr.ind = T)
     if(length(quale_posizione)==0) stop("ERRORE: non riesco a trovare la posizione cui e' associato l'ENDIF")
@@ -532,15 +709,23 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
     # browser()
     runningClass <- mem.struct$running.class
     runningMethod <- mem.struct$running.method
+    runningFunction <- mem.struct$running.function
     
-    arr.else <- unlist(lapply(mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif, function(x){ x$riga.else } ))
-
+    if(!is.null(runningClass) & !is.null(runningMethod)) { 
+      arr.else <- unlist(lapply(mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif, function(x){ x$riga.else } ))
+      # Se sto leggendo un ELSE e' perche' ero nella condizione ed ora devo saltare all'endif
+      # quindi prendi l'endif associato e zompa!
+      new.script.cursor <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif[[quale_posizione]]$riga.endif
+    }
+    if(!is.null(runningFunction)) { 
+      arr.else <- unlist(lapply(mem.struct$functions[[runningFunction]]$struttura$if.else.endif, function(x){ x$riga.else } ))
+      # Se sto leggendo un ELSE e' perche' ero nella condizione ed ora devo saltare all'endif
+      # quindi prendi l'endif associato e zompa!
+      new.script.cursor <- mem.struct$functions[[runningFunction]]$struttura$if.else.endif[[quale_posizione]]$riga.endif
+    }
     quale_posizione <- which( arr.else == script.cursor,arr.ind = T)
     if(length(quale_posizione)==0) stop("ERRORE: non riesco a trovare la posizione cui e' associato l'ELSE")
 
-    # Se sto leggendo un ELSE e' perche' ero nella condizione ed ora devo saltare all'endif
-    # quindi prendi l'endif associato e zompa!
-    new.script.cursor <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif[[quale_posizione]]$riga.endif
 
     return( 
       list( "valore" = NA,
@@ -555,19 +740,41 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
   # IF
   # ----------------------------------------------------  
   risolvi.if<-function( stringa , complete.script , script.cursor ) {
-
+# if(stringa=="if(valore <= 0 | valore >= 2.8 ) then") browser()
     runningClass <- mem.struct$running.class
     runningMethod <- mem.struct$running.method
+    runningFunction <- mem.struct$running.function
+    
     # Bene! Dato che sono stato figo ed ho costruito in pre-processing degli 
     # script la struttura degli if, facciamo che ora vado a ripigliarla!
     # (prima vediamo che ci sia, senno': ERROR! )
-    if( (as.character(script.cursor) %in%  
-          names(mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif))==FALSE) {
-      stop("Errore! mi sarei aspettato di trovar parlato di questo if, dal pre-processor dello script!")
+    if(!is.null(runningClass) & !is.null(runningMethod)) {
+      if( (as.character(script.cursor) %in%  
+           names(mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif))==FALSE) {
+        stop("Errore! mi sarei aspettato di trovar parlato di questo if, dal pre-processor dello script!")
+      }      
+      # prendi i nomi delle sospette variabili da sostituire
+      sospette.variabili <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif[[as.character(script.cursor)]]$toResolve
+      # ora scorri l'array delle posizioni da ricostruire, dove abbiamo indicato con il nome
+      # "token" le posizioni in cui e' stata trovata (stimata) una variabile di cui sostituire il valore
+      arrayCondizioneDaRicostruire <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif[[as.character(script.cursor)]]$arrayCondizioneDaRicostruire
+      # Ora cerca di capire dove il cursore di eseuczione dello script dovrebbe venire mosso!
+      riga.else <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif[[as.character(script.cursor)]]$riga.else
+      riga.endif <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif[[as.character(script.cursor)]]$riga.endif
+    }
+    if(!is.null(runningFunction)) {
+      # prendi i nomi delle sospette variabili da sostituire
+      sospette.variabili <- mem.struct$functions[[runningFunction]]$struttura$if.else.endif[[as.character(script.cursor)]]$toResolve
+      # ora scorri l'array delle posizioni da ricostruire, dove abbiamo indicato con il nome
+      # "token" le posizioni in cui e' stata trovata (stimata) una variabile di cui sostituire il valore
+      arrayCondizioneDaRicostruire <- mem.struct$functions[[runningFunction]]$struttura$if.else.endif[[as.character(script.cursor)]]$arrayCondizioneDaRicostruire
+      # Ora cerca di capire dove il cursore di eseuczione dello script dovrebbe venire mosso!
+      riga.else <- mem.struct$functions[[runningFunction]]$struttura$if.else.endif[[as.character(script.cursor)]]$riga.else
+      riga.endif <- mem.struct$functions[[runningFunction]]$struttura$if.else.endif[[as.character(script.cursor)]]$riga.endif
     }
 
     # prendi i nomi delle sospette variabili da sostituire
-    sospette.variabili <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif[[as.character(script.cursor)]]$toResolve
+    # sospette.variabili <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif[[as.character(script.cursor)]]$toResolve
     
     valore.trovato<-list(); tipo.variabile <- list()
     for( variabile in sospette.variabili ) {
@@ -579,9 +786,9 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
       tipo.variabile[[variabile]] <- mem.struct$var[[variabile]]$type
     }
     
-    # ora scorri l'array delle posizioni da ricostruire, dove abbiamo indicato con il nome
-    # "token" le posizioni in cui e' stata trovata (stimata) una variabile di cui sostituire il valore
-    arrayCondizioneDaRicostruire <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif[[as.character(script.cursor)]]$arrayCondizioneDaRicostruire
+    # # ora scorri l'array delle posizioni da ricostruire, dove abbiamo indicato con il nome
+    # # "token" le posizioni in cui e' stata trovata (stimata) una variabile di cui sostituire il valore
+    # arrayCondizioneDaRicostruire <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif[[as.character(script.cursor)]]$arrayCondizioneDaRicostruire
 
     condizione.finale.da.parsare<-c()
     if(length(arrayCondizioneDaRicostruire)>0) { 
@@ -604,12 +811,12 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
     } else  { 
       condizione.finale.da.parsare <- arrayCondizioneDaRicostruire
     }
-
+    # if(stringa=="if( idNoduli != 'null') then") browser()
     esito.condizione <- eval(parse(text=condizione.finale.da.parsare))
     
     # Ora cerca di capire dove il cursore di eseuczione dello script dovrebbe venire mosso!
-    riga.else <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif[[as.character(script.cursor)]]$riga.else
-    riga.endif <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif[[as.character(script.cursor)]]$riga.endif
+    # riga.else <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif[[as.character(script.cursor)]]$riga.else
+    # riga.endif <- mem.struct$class.methods[[runningClass]][[runningMethod]]$struttura$if.else.endif[[as.character(script.cursor)]]$riga.endif
     
     if(esito.condizione==TRUE) nuova.posizione.cursore <- script.cursor + 1
     if(esito.condizione==FALSE) { 
@@ -667,6 +874,13 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
     proxy.mem.contesto.set(method.name = nome.metodo,class.name = nome.classe)
     return(list( "valore"=NA, "operation.token" = "define", "operation"=stringa))    
   }
+  risolvi.define.function<-function( stringa ) {
+    # Se gia' era aperta una definizione, dai errore
+    if(length(mem.struct$define.context)>0) stop("\n sono gia' nel contesto di una definizione: non posso aprirle un'altra")
+    nome.funzione <- str_trim(sub("^[ ]*define[ ]+function[ ]+","\\1",stringa) )
+    proxy.mem.contesto.set( nome.funzione = nome.funzione )
+    return(list( "valore"=NA, "operation.token" = "define", "operation"=stringa))    
+  }
   # ----------------------------------------------------
   # RETURN
   # ----------------------------------------------------  
@@ -691,6 +905,48 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
     }
     # ... allora dai errore perche' va risolto ricorsivamente
     stop("-TODO: invoca ricorsivamente il calcolo dell' argomento da restituire")    
+  }
+  risolvi.function.call  <-function(stringa, complete.script , script.cursor ) {
+    
+    # prendi il nome funzione
+    nome.funzione <- str_trim(sub("\\(.*\\)$" ,"\\1", stringa ))
+    # ora prendi gli argomenti
+    tmp.val.1 <- str_trim(sub("^[ ]*^[a-zA-Z]+[a-zA-Z_0-9]*" ,"\\1", stringa ))
+    stringa.argomento <- str_sub(string = tmp.val.1,start = 2,end = str_length(tmp.val.1)-1)
+    tmp.str.4 <- str_split(string = stringa.argomento,pattern = ",")[[1]]   
+    arr.argomento <- unlist(lapply(X = tmp.str.4, str_trim ))    
+    
+    # Ora sbroglia gli argomenti
+    lst.argomento.valori <- c()
+    ct <- 1
+    for(argomento in arr.argomento) {
+      assigned <- FALSE
+      # Se il valore dell'argomento e' gia' passato (es: stringa o int)
+      if( is.a.number(argomento) | is.a.quoted.string(argomento) & assigned==FALSE ) {
+        lst.argomento.valori[[ct]] <- list("value"=argomento,"type"=definisci.tipo.variabile(argomento))
+        assigned <- TRUE
+      }
+      # Se e' una variabile presente in memoria
+      if(argomento %in% names(mem.struct$var)  & assigned==FALSE ) {
+        lst.argomento.valori[[ct]] <- mem.struct$var[[argomento]]
+        assigned <- TRUE
+      }
+      if( assigned==FALSE ) {
+        # Se invece devo risolverlo
+        browser()
+        stop("\n Ach! non sono ancora pronto a risolvere questo tipo di arogmento... chiama il mainteiner del pacchetto!")
+      }
+      ct <- ct + 1
+    }    
+    
+    
+    # VERIFICA che la funzione esista
+    if(!( nome.funzione %in% names(mem.struct$functions) ) & nome.funzione!="writeLog") stop("\nERRORE: Ach! la funzione non sembra esistere")
+    
+    # ORA risolvi L'accesso alla funzione!
+    ooo <- risolvi.funzione.HLL( nome.funzione = nome.funzione, lst.argomenti = lst.argomento.valori)
+    
+    return(ooo)
   }
   risolvi.accessoAMetodo.con.parametri<-function( stringa , res) {
     # estrazione preliminare di sottostringhe
@@ -764,7 +1020,21 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
   risolvi.accessoAMetodo<-function( stringa , res , 
                                     nome.oggetto=NA, attributo=NA, obj.pk=NA, 
                                     lst.argomenti=c(), complex.invokation=FALSE) {
+    # if(stringa=="Tools.addDaysToDate( dataEvento_Hook, -90 )") browser()
+    # if(stringa=="Tools.addDaysToDate( dataDiRiferimento, deltaInferioreGiorni )") browser()
+    # if(stringa=="EcoTiroide(hook_US).dimensioneNoduloMaggiore") browser()
+    # normalizza il formato dei parametri dato che rischiano di arrivare con strutture diverse!
+    # - im - normalizzazione
+    for( i in seq(1,length(lst.argomenti))) {	
+      if(is.list(lst.argomenti[[i]]$type))  {
+        tmp.a.value <- lst.argomenti[[i]]$type$risultatoElemento
+        tmp.a.type <- lst.argomenti[[i]]$type$tipo.variabile.restituita
+        lst.argomenti[[i]] <- list( "type"=tmp.a.type , "value"=tmp.a.value)
+      }
+    }
+    # - fm - normalizzazione
     
+    # if(stringa=="Paziente.EventoClinicoDiTerzePartiFraDate('SCINTIGRAFIA',dataFrom,dataTo)") browser()
     # Due controlli formali di apertura, giusto per gradire (se caso implicito ma manca la PK)
     RelazioneDiTipo <- FALSE
     # browser()
@@ -797,7 +1067,7 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
     }
     
     need.PK <- LLL.env$is.relation.of( nome.oggetto , attributo , whatInfo="need.PK" )
-    
+    # if(stringa=="Paziente.EventoClinicoDiTerzePartiFraDate('SCINTIGRAFIA',dataFrom,dataTo)") browser()
     # invoca eventuali calcoli ricorsivi, per risolvere 'obj.pk' o il valore di 'secondo.membro'
     if( is.a.number(obj.pk) == FALSE & need.PK == TRUE ) {
       # Vediamo se e' una variabile :)
@@ -820,9 +1090,11 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
     # Se sto cercando di invocare la classe TOOLS!
     if(nome.oggetto=="Tools") {
       obj.tool <- Ste.tool.class()
+      obj.tool$setEnv( mem = mem.struct, null.value = global.null.value )
+      # browser()
       val.from.obj.tool <- obj.tool$proxy( stringa = attributo , lst.parametri = lst.argomenti)
       if(val.from.obj.tool$error == TRUE ) stop("Errore non identificato nell'invocare la classe Tools")
-
+# browser()
       return(list( "valore"=val.from.obj.tool$value,
                    "operation.token" = "Tools::<method>",
                    "operation"=stringa))
@@ -842,6 +1114,7 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
                      "operation"=stringa))
       }
       else {
+        # browser()
         # E' una relazione fra due classi?
         if(LLL.env$is.relation.of(className = nome.oggetto, relName=attributo) == TRUE) {
           res <- LLL.env$getEntityRelation(obj.name = nome.oggetto,id = obj.pk, relation.name = attributo, lst.argomenti = lst.argomenti)
@@ -860,21 +1133,48 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
   # SET
   # ----------------------------------------------------
   risolvi.set<-function( stringa , script.cursor = NA ) {
-    
+    # if(stringa=="set deltaInferioreGiorni = $parameter_2$") browser()
     runningClass <- mem.struct$running.class
     runningMethod <- mem.struct$running.method
     
     nome.variabile <- str_extract(string = sub("^[ ]*set[ ]*", "\\1", stringa),pattern = "[A-Za-z0-9._]*")
     secondo.membro <- sub("^[ ]*set[ ]+[A-Za-z0-9._]+[ ]*=[ ]*","\\1",stringa)
+    # browser()
+    # if(stringa=="set dataDiRiferimento = $parameter_3$") browser()
     
-    # Se il secondo membro e' un parametro, associalo
+    # Se il secondo membro e' un PARAMETER, associalo
     if( !is.na(str_extract(string = secondo.membro, pattern = "^[ ]*\\$.*[0-9]+\\$[ ]*$")) ) {
       tmp.secondo.membro <- str_trim(secondo.membro)
       whichParameter <- str_sub(string = tmp.secondo.membro,start = 12,end = str_length(tmp.secondo.membro)-1)
       if( is.numeric(as.numeric(whichParameter)) == FALSE) stop("\n ERRORE: qualcosa non va in come e' stato indicato il parametro: errore di sintassi?")
       whichParameter <- as.numeric(whichParameter)
-      if( whichParameter > length(mem.struct$lst.parameters) ) stop("\n ERRORE: qualcosa non va in come e' stato indicato il parametro: parametro non esistente")
-      secondo.membro <- mem.struct$lst.parameters[[whichParameter]]$type$risultatoElemento
+      if( whichParameter > length(mem.struct$lst.parameters) ) { 
+        stop("\n ERRORE: qualcosa non va in come e' stato indicato il parametro: parametro non esistente")
+      }        
+      # if(stringa=="set dataDiRiferimento = $parameter_3$") browser()
+      # if(stringa=="set arr_id = $parameter_1$") browser()
+      # secondo.membro <- mem.struct$lst.parameters[[whichParameter]]$type$risultatoElemento
+      # Proviamo cosi': se il parametro e' stato stimato, prendi la stima, senno' prendi quanto 
+      # direttamente indicato
+    
+      if(is.list(mem.struct$lst.parameters[[whichParameter]]$type)) {
+        # browser()
+        secondo.membro <- mem.struct$lst.parameters[[whichParameter]]$type$risultatoElemento
+        tipo.variabile <- mem.struct$lst.parameters[[whichParameter]]$type$tipo.variabile.restituita
+      } else  {
+        # secondo.membro <- mem.struct$lst.parameters[[whichParameter]]$value
+        # browser()
+        aaa <- definisci.tipo.variabile(risultatoElemento = mem.struct$lst.parameters[[whichParameter]]$value)
+        secondo.membro <- aaa$risultatoElemento
+        tipo.variabile <- aaa$tipo.variabile.restituita
+      }
+      # Visto che sono in grado di associarlo subito, associalo ed esci
+      proxy.mem.struct.set(varName = nome.variabile, value = secondo.membro, type = tipo.variabile)
+      return( list(
+        "valore" = NA,
+        "operation.token" = "SET",
+        "operation"=stringa
+      ) )
     }    
     
     # Se il secondo membro e' un numero non stare a farti tante seghe...
@@ -894,11 +1194,14 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
         "operation"=stringa
       ) )      
     }
+    # if(stringa=="set deltaInferioreGiorni = $parameter_2$") browser()
+    # if(stringa=="set idNoduli = noduloTiroideo.relatedToClinicalEvent(cursor)") browser()
     # Se il secondo membro e' un oggetto, diretto od indiretto, risolvilo senza tante seghe
     test.str<-list()
     test.str["obj"]<- str_extract(string = secondo.membro, pattern = "^[ ]*^[a-zA-Z _]+\\(.*\\)[ ]*\\..*$")
     test.str["obj.implicit.PK"]<- str_extract(string = secondo.membro, pattern = "^[ ]*[a-zA-Z]+[a-zA-Z0-9_]*\\.[a-zA-Z]+[a-zA-Z0-9_]*[ ]*$")
-    if( !is.na(test.str["obj"]) | !is.na(test.str["obj.implicit.PK"]) ) {
+    test.str["obj.with.parameters"]<- str_extract(string = secondo.membro, pattern = "^[ ]*^[a-zA-Z _]+(\\(.*\\))*\\.[a-zA-Z _]+\\(.*\\)$")        
+    if( !is.na(test.str["obj"]) | !is.na(test.str["obj.implicit.PK"]) | !is.na(test.str["obj.with.parameters"]) ) {
       # invoca il calcolo
       risultatoElemento <- invoca.ricorsivamente.HLL(HLL.script =  secondo.membro)
       # indovina il tipo
@@ -911,17 +1214,16 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
         "operation"=stringa
       ) )
     }
-    
+    if(stringa=="set dataDiRiferimento = $parameter_3$") browser()
     argomento.multi.token <- FALSE
     if(!is.na(script.cursor)) { 
-
       if( mem.struct$class.methods[[mem.struct$running.class]][[mem.struct$running.method]]$struttura$set.statement[[as.character(script.cursor)]]$exitCode == 0 ) {
         argomento.multi.token <- TRUE
         mmatrice <- mem.struct$class.methods[[mem.struct$running.class]][[mem.struct$running.method]]$struttura$set.statement[[as.character(script.cursor)]]$matriceElementiRilevati
         # risolvi ogni elemento della matrice (escludendo il primo)
         stringa.parziale <- "";
-        for(ct in 1:(dim(mmatrice)[1]))    {
-
+        for(ct in seq(1:(dim(mmatrice)[1])))    {
+          # if(stringa=="set idNoduli = noduloTiroideo.relatedToClinicalEvent(cursor)") browser()
           if(mmatrice[ct,"stato"] == "token" ) {
             # cerca: se e' gia' presente in memoria, usa quello, altrimenti cerca di risolverlo chiamando
             # ricorisvamente il risolutore
@@ -961,7 +1263,7 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
         }       
       }
     }
-    
+    # browser()
     if(argomento.multi.token == FALSE) { 
       res <- invoca.ricorsivamente.HLL(HLL.script =  secondo.membro)
     } else { res <- list("valore"=stringa.parziale ) }
@@ -1312,7 +1614,9 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
   # setEnv
   # Setta il contesto, ovvero carica lo schema LLL da usare
   # ----------------------------------------------------------------
-  setEnv<-function( env = list(), mem = list(), classMethods=list(), debug.mode = NA, max.debug.deep = NA, arr.breakpoints = c() ) {
+  setEnv<-function( env = list(), mem = list(), 
+                    classMethods=list(), debug.mode = NA, max.debug.deep = NA, 
+                    arr.breakpoints = c() ) {
     if(length(env)>0) LLL.env <<- env
     if(length(mem)>0) mem.struct <<- mem
     if(length(classMethods)>0) mem.struct$class.methods <<- classMethods
@@ -1326,6 +1630,11 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
   get<-function(  ) {
     return(mem.struct)
   }    
+  getAttribute<-function( attributo ) {
+    if(attributo=="executed.statements") return(global.executed.statements)
+    if(attributo=="logQueue") return(mem.struct$logQueue)
+    stop("\n ==============\n ERROR: the requested attribute is not available\n ==============")
+  }    
   # ----------------------------------------------------------------
   # Costruttore
   # ----------------------------------------------------------------
@@ -1338,6 +1647,7 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
     mem.struct$script.structures <<-list()
     mem.struct$active.loops <<-list()
     mem.struct$lst.parameters <<- list()
+    mem.struct$logQueue <<- list()
     global.null.value <<-"null"
     global.debug.mode <<- debug.mode
     global.deep.level <<- deep.level
@@ -1356,6 +1666,7 @@ HLL <- function( debug.mode = FALSE, deep.level = 1, executed.statements = 0, ma
       "parseScript"=parseScript,
       "setEnv"=setEnv,
       "get"=get,
+      "getAttribute"=getAttribute,
       "execute"=execute,
       "getClassMethods"=getClassMethods
     )

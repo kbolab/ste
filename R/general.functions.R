@@ -79,6 +79,10 @@ can.it.be.a.date <- function( stringa ) {
   
   return( list("can.be.a.date"=TRUE, "data.format"=date.format))
 }
+cast.to.numeric.array<-function( suppostoArray ) {
+  suppostoArray[ suppressWarnings(unlist(lapply(suppostoArray,is.a.number))) ]
+  return(suppostoArray)
+}
 stopQuietly <- function() {
   opt <- options(show.error.messages = FALSE)
   on.exit(options(opt))
