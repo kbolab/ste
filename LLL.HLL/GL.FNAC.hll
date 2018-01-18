@@ -116,8 +116,8 @@ define isFNACIndicated as method of Paziente
   set dataFrom = Tools.addDaysToDate( dataEvento_Hook, -90 )
   set dataTo = Tools.addDaysToDate( dataEvento_Hook, +90 )
   
-  set TSHViciniHook = Paziente(189).hasExamInDateRange('TSH',dataFrom,dataTo)
-  set CalcitonineVicineHook = Paziente(189).hasExamInDateRange('Calcitonina',dataFrom,dataTo)
+  set TSHViciniHook = Paziente.hasExamInDateRange('TSH',dataFrom,dataTo)
+  set CalcitonineVicineHook = Paziente.hasExamInDateRange('Calcitonina',dataFrom,dataTo)
   
   writeLog('LOG','Rilevati noduli in sede di indagine ecografica il ',dataEvento_Hook,'; applico la GL')
   
